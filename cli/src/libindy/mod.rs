@@ -3,6 +3,7 @@ pub mod pool;
 pub mod wallet;
 pub mod ledger;
 pub mod payment;
+pub mod crypto;
 mod callbacks;
 mod results;
 
