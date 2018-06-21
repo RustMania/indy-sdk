@@ -25,7 +25,7 @@ mod libindy;
 
 use command_executor::CommandExecutor;
 
-use commands::{common, did, ledger, pool, wallet, payment_address};
+use commands::{common, did, ledger, pool, wallet, payment_address, crypto};
 
 use linefeed::{Reader, ReadResult, Terminal};
 use linefeed::complete::{Completer, Completion};
