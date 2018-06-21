@@ -123,6 +123,8 @@ fn build_executor() -> CommandExecutor {
         .add_command(crypto::encrypt::new())
         .add_command( crypto::decrypt::new())
         .add_command(crypto::compose_key::new())
+        .add_command(crypto::create_schema::new())
+        .add_command( crypto::create_credential_def::new())
         .finalize_group()
         .finalize()
 }

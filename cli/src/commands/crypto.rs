@@ -2,7 +2,7 @@ use command_executor::{ Command, CommandMetadata, CommandContext,  CommandParams
 use commands::*;
 
 use libindy::crypto::Crypto;
-
+use libindy::anoncreds::Anoncreds;
 
 pub mod group {
     use super::*;
@@ -43,7 +43,7 @@ pub mod compose_key{
     }
 }
 
-// Diffie-Helman based encryption. Uses the key derived from composition of local private and remote public keys
+
 pub mod encrypt_dh {
     use super::*;
 
@@ -224,5 +224,94 @@ pub mod decrypt{
         trace!("execute << {:?}", res);
         res
     }
+
+}
+
+pub mod create_schema{
+
+    use super::*;
+
+    command!(CommandMetadata::build("schema", "Create schema")
+                .add_required_param("did", "DID of the issuer")
+                .add_required_param("name", "Schema name")
+                .add_required_param("v","Schema version")
+                .add_required_param("attr","Schema attributes")
+                .add_example("crypto schema  did=... name=myschema v=1 attr=\"[\\\"age\\\", \\\"sex\\\", \\\"height\\\", \\\"name\\\"]\" ")
+                .finalize()
+    );
+
+    fn execute(ctx: &CommandContext, params: &CommandParams) -> Result<(), ()> {
+        trace!("execute >> ctx {:?} params {:?}", ctx, params);
+
+        //let wallet_name = get_str_param("name", params).map_err(error_err!())?;
+
+        let did = get_str_param("did", params).map_err(error_err!())?;
+        let name = get_str_param("name", params).map_err(error_err!())?;
+        let version = get_str_param("v", params).map_err(error_err!())?;
+        let attributes = get_str_param("attr", params).map_err(error_err!())?;
+
+
+        let res = Anoncreds::create_schema(did,name,version,attributes);
+
+        trace!(r#"Crypto::decrypt return: {:?}"#, res);
+
+        let res = match res {
+            Ok((schema_id,schema_json)) => Ok(println_succ!("schema {}\n\n{}\n", schema_id , schema_json)),
+            Err(err) => Err(println_err!("Indy SDK error occurred {:?}", err)),
+        };
+
+        trace!("execute << {:?}", res);
+        res
+    }
+
+
+}
+
+pub mod create_credential_def{
+    use super::*;
+
+    command!(CommandMetadata::build("cdef", "Create credential definition")
+                .add_required_param("did", "DID of the issuer")
+                .add_required_param("schema", "Schema in JSON")
+                .add_required_param("tag","Tag")
+                .add_required_param("sigtype","Schema signature type")
+                .add_required_param("cfg", "Config")
+                .add_example("crypto cdef  did=... schema=\"{ ... }\"  tag=TAG sigtype=CL cfg={\"support_revocation\":true} ")
+                .finalize()
+    );
+
+    fn execute(ctx: &CommandContext, params: &CommandParams) -> Result<(), ()> {
+        trace!("execute >> ctx {:?} params {:?}", ctx, params);
+
+        //let wallet_name = get_str_param("name", params).map_err(error_err!())?;
+
+        let did = get_str_param("did", params).map_err(error_err!())?;
+        let schema_json = get_str_param("schema", params).map_err(error_err!())?;
+        let tag = get_str_param("tag", params).map_err(error_err!())?;
+        let signature_type = get_str_param("sigtype", params).map_err(error_err!())?;
+        let config_json = get_str_param("cfg", params).map_err(error_err!())?;
+
+
+        let wallet_handle =
+            match get_opened_wallet(ctx){
+                Some((handle, _)) => handle,
+                None => {
+                    return Err(println_err!("No wallets opened"))
+                }
+            };
+
+        let res = Anoncreds::create_credential_def(wallet_handle,did,schema_json,tag,signature_type,config_json);
+
+        trace!(r#"Crypto::decrypt return: {:?}"#, res);
+
+        let res = match res {
+            Ok((def_id,def_json)) => Ok(println_succ!("cred definition {}\n\n{}\n", def_id , def_json)),
+            Err(err) => Err(println_err!("Indy SDK error occurred {:?}", err)),
+        };
+
+        trace!("execute << {:?}", res);
+        res
+    }
+
 
 }

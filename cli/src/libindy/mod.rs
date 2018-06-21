@@ -4,6 +4,7 @@ pub mod wallet;
 pub mod ledger;
 pub mod payment;
 pub mod crypto;
+pub mod anoncreds;
 mod callbacks;
 mod results;
 
