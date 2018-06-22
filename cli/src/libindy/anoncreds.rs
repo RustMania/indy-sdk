@@ -45,6 +45,55 @@ impl Anoncreds {
 
         super::results::result_to_string_string(err, receiver)
     }
+
+    pub fn create_credential_offer(wallet: IndyHandle, cred_def_id : &str) -> Result<String, ErrorCode>
+    {
+
+        let (receiver, command_handle, cb ) = super::callbacks::_closure_to_cb_ec_string();
+
+        let cred_def_id = CString::new(cred_def_id).unwrap();
+
+        let err = unsafe {
+            indy_issuer_create_credential_offer(command_handle,wallet,cred_def_id.as_ptr(),cb)
+        };
+
+        super::results::result_to_string(err, receiver)
+    }
+
+    pub fn create_master_secret(wallet: IndyHandle, master_secret_id : &str) -> Result<String, ErrorCode>
+    {
+
+        let (receiver, command_handle, cb ) = super::callbacks::_closure_to_cb_ec_string();
+
+        let ms_id = CString::new(master_secret_id).unwrap();
+
+        let err = unsafe {
+            indy_prover_create_master_secret(command_handle,wallet,ms_id.as_ptr(),cb)
+        };
+
+        super::results::result_to_string(err, receiver)
+    }
+
+
+    pub fn create_credential_request(wallet: IndyHandle, prover_did: &str, cred_offer: &str, cred_def: &str, master_secret_id: &str) -> Result<(String,String),ErrorCode>
+    {
+        let (receiver, command_handle, cb) = super::callbacks::_closure_to_cb_ec_string_string();
+
+
+        let prover_did = CString::new(prover_did).unwrap();
+        let cred_offer = CString::new(cred_offer).unwrap();
+        let cred_def = CString::new(cred_def).unwrap();
+        let master_secret_id = CString::new(master_secret_id).unwrap();
+
+
+        let err = unsafe {
+            indy_prover_create_credential_req(command_handle,wallet,prover_did.as_ptr(),cred_offer.as_ptr(),
+                                              cred_def.as_ptr(),master_secret_id.as_ptr(),cb)
+        };
+
+        super::results::result_to_string_string(err,receiver)
+
+    }
 }
 
 
@@ -71,4 +120,36 @@ extern {
                                                               cb: Option<extern fn(xcommand_handle: i32, err: ErrorCode,
                                                                                    cred_def_id: *const c_char,
                                                                                    cred_def_json: *const c_char)>) -> ErrorCode;
+
+
+    #[no_mangle]
+    pub fn indy_issuer_create_credential_offer(command_handle: i32,
+                                               wallet_handle: i32,
+                                               cred_def_id: *const c_char,
+                                               cb: Option<extern fn(xcommand_handle: i32, err: ErrorCode,
+                                                                    cred_offer_json: *const c_char)>) -> ErrorCode;
+
+
+    #[no_mangle]
+    pub fn indy_prover_create_master_secret(command_handle: i32,
+                                                   wallet_handle: i32,
+                                                   master_secret_id: *const c_char,
+                                                   cb: Option<extern fn(xcommand_handle: i32, err: ErrorCode,
+                                                                        out_master_secret_id: *const c_char)>) -> ErrorCode;
+
+
+
+    #[no_mangle]
+    pub fn indy_prover_create_credential_req(command_handle: i32,
+                                                    wallet_handle: i32,
+                                                    prover_did: *const c_char,
+                                                    cred_offer_json: *const c_char,
+                                                    cred_def_json: *const c_char,
+                                                    master_secret_id: *const c_char,
+                                                    cb: Option<extern fn(xcommand_handle: i32, err: ErrorCode,
+                                                                         cred_req_json: *const c_char,
+                                                                         cred_req_metadata_json: *const c_char)>) -> ErrorCode;
+
+
+
 }
