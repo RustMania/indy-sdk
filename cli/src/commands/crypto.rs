@@ -404,12 +404,12 @@ pub mod create_credential_request{
 
     use super::*;
 
-    command!(CommandMetadata::build("creq", "Create credential request")
+    command!(CommandMetadata::build("request", "Create credential request")
                 .add_required_param("did", "Prover DID")
                  .add_required_param("offer", "Credential offer")
                   .add_required_param("cdef", "Credential definition")
                    .add_required_param("id", "Master secret id")
-                .add_example("crypto creq did=... offer=... cdef=... id=...")
+                .add_example("crypto request did=... offer=... cdef=... id=...")
                 .finalize()
     );
 
@@ -436,7 +436,7 @@ pub mod create_credential_request{
         trace!(r#"Anoncreds::create_credential_request return: {:?}"#, res);
 
         let res = match res {
-            Ok((req,metadata)) => Ok(println_succ!("credential request\n\n{}\n{}\n",req, metadata )),
+            Ok((req,metadata)) => Ok(println_succ!("credential request\n\n{}\nmetadata\n{}\n",req, metadata )),
             Err(err) => Err(println_err!("Indy SDK error occurred {:?}", err)),
         };
 
@@ -445,4 +445,49 @@ pub mod create_credential_request{
     }
 
 
+}
+
+
+pub mod create_credential{
+
+    use super::*;
+
+
+    command!(CommandMetadata::build("credential", "Create credential ")
+                 .add_required_param("offer", "Credential offer")
+                  .add_required_param("request", "Credential request")
+                   .add_required_param("values", "Credential values")
+                .add_example("crypto credential offer=... request=... values=...")
+                .finalize()
+    );
+
+    fn execute(ctx: &CommandContext, params: &CommandParams) -> Result<(), ()> {
+        trace!("execute >> ctx {:?} params {:?}", ctx, params);
+
+
+        let request = get_str_param("request", params).map_err(error_err!())?;
+        let offer = get_str_param("offer", params).map_err(error_err!())?;
+        let values = get_str_param("values", params).map_err(error_err!())?;
+
+
+        let wallet_handle =
+            match get_opened_wallet(ctx){
+                Some((handle, _)) => handle,
+                None => {
+                    return Err(println_err!("No wallets opened"))
+                }
+            };
+
+        let res = Anoncreds::create_credential(wallet_handle, offer,request,values);
+
+        trace!(r#"Anoncreds::create_credential_request return: {:?}"#, res);
+
+        let res = match res {
+            Ok((cred,revoc_id,revoc_delta)) => Ok(println_succ!("credential\n\n{}\n{} {}\n", cred, revoc_id, revoc_delta )),
+            Err(err) => Err(println_err!("Indy SDK error occurred {:?}", err)),
+        };
+
+        trace!("execute << {:?}", res);
+        res
+    }
 }

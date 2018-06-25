@@ -57,3 +57,17 @@ pub fn result_to_string_string(err: ErrorCode, receiver: Receiver<(ErrorCode, St
 
     Ok((val, val2))
 }
+
+pub fn result_to_string_string_string(err: ErrorCode, receiver: Receiver<(ErrorCode, String, String,String)>) -> Result<(String, String, String), ErrorCode> {
+    if err != ErrorCode::Success {
+        return Err(err);
+    }
+
+    let (err, val, val2, val3) = receiver.recv().unwrap();
+
+    if err != ErrorCode::Success {
+        return Err(err);
+    }
+
+    Ok((val, val2,val3))
+}

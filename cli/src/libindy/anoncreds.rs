@@ -94,6 +94,24 @@ impl Anoncreds {
         super::results::result_to_string_string(err,receiver)
 
     }
+
+
+    pub fn create_credential(wallet: IndyHandle, cred_offer: &str, cred_req: &str, cred_values: &str) -> Result<(String,String,String), ErrorCode>
+    {
+        let (receiver, command_handle, cb )
+            = super::callbacks::_closure_to_cb_ec_string_string_string();
+
+        let offer = CString::new(cred_offer).unwrap();
+        let request = CString::new(cred_req).unwrap();
+        let values = CString::new(cred_values).unwrap();
+
+        let err = unsafe {
+            indy_issuer_create_credential(command_handle,wallet, offer.as_ptr(),request.as_ptr(),values.as_ptr(),
+            0 as *const i8,0i32,cb)
+        };
+
+        super::results::result_to_string_string_string(err,receiver)
+    }
 }
 
 
@@ -149,6 +167,20 @@ extern {
                                                     cb: Option<extern fn(xcommand_handle: i32, err: ErrorCode,
                                                                          cred_req_json: *const c_char,
                                                                          cred_req_metadata_json: *const c_char)>) -> ErrorCode;
+
+
+    #[no_mangle]
+    pub fn indy_issuer_create_credential(command_handle: i32,
+                                                wallet_handle: i32,
+                                                cred_offer_json: *const c_char,
+                                                cred_req_json: *const c_char,
+                                                cred_values_json: *const c_char,
+                                                rev_reg_id: *const c_char,
+                                                blob_storage_reader_handle: i32,
+                                                cb: Option<extern fn(xcommand_handle: i32, err: ErrorCode,
+                                                                     cred_json: *const c_char,
+                                                                     cred_revoc_id: *const c_char,
+                                                                     revoc_reg_delta_json: *const c_char)>) -> ErrorCode;
 
 
 
