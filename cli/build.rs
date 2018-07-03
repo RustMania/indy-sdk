@@ -31,5 +31,7 @@ fn main() {
         }
     } else {
         println!("cargo:rustc-link-lib=indy");
+        let profile = env::var("PROFILE").unwrap();
+        println!("cargo:rustc-link-search=../libindy/target/{}",profile);
     }
 }

@@ -25,7 +25,7 @@ mod libindy;
 
 use command_executor::CommandExecutor;
 
-use commands::{common, did, ledger, pool, wallet, payment_address};
+use commands::{common, did, ledger, pool, wallet, payment_address, crypto};
 
 use linefeed::{Reader, ReadResult, Terminal};
 use linefeed::complete::{Completer, Completion};
@@ -123,6 +123,12 @@ fn build_executor() -> CommandExecutor {
         .add_command(crypto::encrypt::new())
         .add_command( crypto::decrypt::new())
         .add_command(crypto::compose_key::new())
+        .add_command(crypto::create_schema::new())
+        .add_command( crypto::create_credential_def::new())
+        .add_command( crypto::create_credential_offer::new())
+        .add_command(crypto::create_master_key::new())
+        .add_command( crypto::create_credential_request::new())
+        .add_command(crypto::create_credential::new())
         .finalize_group()
         .finalize()
 }
