@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use std::ffi::CStr;
 use std::sync::Mutex;
 use std::sync::mpsc::{channel, Receiver};
-use rust_base58::ToBase58;
+use base64;
 
 pub fn _closure_to_cb_ec() -> (Receiver<ErrorCode>, i32,
                                Option<extern fn(command_handle: i32,
@@ -156,7 +156,7 @@ pub fn _closure_to_cb_ec_string_string_string() -> (Receiver<(ErrorCode, String,
 
 
 
-pub fn _closure_to_cb_ec_message58() -> (Receiver<(ErrorCode, String)>, i32,
+pub fn _closure_to_cb_ec_message64() -> (Receiver<(ErrorCode, String)>, i32,
                                              Option<extern fn(command_handle: i32,
                                                               err: ErrorCode,
                                                               encrypted_msg: *const u8,
@@ -178,7 +178,7 @@ pub fn _closure_to_cb_ec_message58() -> (Receiver<(ErrorCode, String)>, i32,
         let mut cb = callbacks.remove(&command_handle).unwrap();
         let str = unsafe {
             let _slice = slice::from_raw_parts(msg,len as usize);
-            _slice.to_base58()
+            base64::encode(_slice)
         };
         cb(err, str)
     }

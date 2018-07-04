@@ -14,6 +14,7 @@ extern crate serde_json;
 extern crate prettytable;
 
 extern crate rust_base58;
+extern crate base64;
 
 
 #[macro_use]
@@ -118,8 +119,8 @@ fn build_executor() -> CommandExecutor {
         .add_command(payment_address::list_command::new())
         .finalize_group()
         .add_group(crypto::group::new())
-        .add_command(crypto::encrypt_dh::new())
-        .add_command(crypto::decrypt_dh::new())
+        .add_command(crypto::auth_decrypt::new())
+        .add_command(crypto::auth_encrypt::new())
         .add_command(crypto::encrypt::new())
         .add_command( crypto::decrypt::new())
         .add_command(crypto::compose_key::new())

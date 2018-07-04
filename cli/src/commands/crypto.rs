@@ -4,6 +4,7 @@ use commands::*;
 use libindy::crypto::Crypto;
 use libindy::anoncreds::Anoncreds;
 
+
 pub mod group {
     use super::*;
 
@@ -44,24 +45,25 @@ pub mod compose_key{
 }
 
 
-pub mod encrypt_dh {
+pub mod auth_encrypt {
     use super::*;
 
-    command!(CommandMetadata::build("encdh", "Encrypt using DH common secret algorithm")
-                .add_required_param("mykey", "Local validation key to use")
+    command!(CommandMetadata::build("authenc", "Encrypt using common secret and convert to base64")
+                .add_required_param("did", "Local DID to use")
                 .add_required_param("theirkey", "Remote validation key to use")
                 .add_required_param("msg", "Message text")
-                .add_example("crypto enc  mykey=...fullkey...   theirkey=...fullkey...    msg=...msgtext... ")
                 .finalize()
     );
 
     fn execute(ctx: &CommandContext, params: &CommandParams) -> Result<(), ()> {
         trace!("execute >> ctx {:?} params {:?}", ctx, params);
 
-        let mykey = get_str_param("mykey", params).map_err(error_err!())?;
+        let did = get_str_param("did", params).map_err(error_err!())?;
         let theirkey = get_str_param("theirkey", params).map_err(error_err!())?;
         let msg = get_str_param("msg", params).map_err(error_err!())?;
 
+
+        let pool_handle = ensure_connected_pool_handle(&ctx)?;
         let wallet_handle =
             match get_opened_wallet(ctx){
                 Some((handle, _)) => handle,
@@ -70,14 +72,16 @@ pub mod encrypt_dh {
                 }
             };
 
-        trace!(r#"Crypto::encrypt_dh try: wallet {} mykey {}, theirkey {}, msg {:?}"#, wallet_handle, mykey, theirkey, msg);
+        trace!(r#"Crypto::auth_encrypt try: wallet {} mykey {}, theirkey {}, msg {:?}"#, wallet_handle, did, theirkey, msg);
 
-        let res = Crypto::encrypt_dh(wallet_handle, mykey, theirkey, msg);
+        let my_verkey = Crypto::get_key_for_did(pool_handle,wallet_handle,did).unwrap();
 
-        trace!(r#"Crypto::encrypt_dh return: {:?}"#, res);
+        let res = Crypto::encrypt_dh(wallet_handle, my_verkey.as_str(), theirkey, msg);
+
+        trace!(r#"Crypto::auth_encrypt return: {:?}"#, res);
 
         let res = match res {
-            Ok(base58msg) => Ok(println_succ!("message encrypted \n\n{}\n", base58msg)),
+            Ok(base64msg) => Ok(println_succ!("{}\n", base64msg)),
             Err(err) => Err(println_err!("Indy SDK error occurred {:?}", err)),
         };
 
@@ -87,21 +91,20 @@ pub mod encrypt_dh {
 
 }
 
-pub mod decrypt_dh
+pub mod auth_decrypt
 {
     use super::*;
 
-    command!(CommandMetadata::build("decdh", "Decrypt using DH common secret algorithm")
-                .add_required_param("key", "Local validation key to use")
+    command!(CommandMetadata::build("authdec", "Decrypt base64 cyphertext using common secret")
+                .add_required_param("did", "Local validation key to use")
                 .add_required_param("msg", "Cipher text")
-                .add_example("crypto enc  mykey=...fullkey...   theirkey=...fullkey...    msg=...cipher... ")
                 .finalize()
     );
 
     fn execute(ctx: &CommandContext, params: &CommandParams) -> Result<(), ()> {
         trace!("execute >> ctx {:?} params {:?}", ctx, params);
 
-        let key = get_str_param("key", params).map_err(error_err!())?;
+        let did = get_str_param("did", params).map_err(error_err!())?;
         let msg = get_str_param("msg", params).map_err(error_err!())?;
 
 
@@ -114,14 +117,17 @@ pub mod decrypt_dh
             };
 
 
-        trace!(r#"Crypto::decrypt_dh try: key {}, msg {:?}"#, key, msg);
+        trace!(r#"Crypto::authdec try: key {}, msg {:?}"#, did, msg);
 
-        let res = Crypto::decrypt_dh(wallet_handle, key, msg);
+        let pool_handle = ensure_connected_pool_handle(&ctx)?;
+        let my_verkey = Crypto::get_key_for_did(pool_handle,wallet_handle,did).unwrap();
 
-        trace!(r#"Crypto::decrypt_dh return: {:?}"#, res);
+        let res = Crypto::decrypt_dh(wallet_handle, my_verkey.as_str(), msg);
+
+        trace!(r#"Crypto::authdec return: {:?}"#, res);
 
         let res = match res {
-            Ok((decoded_msg, their_key)) => Ok(println_succ!("message decrypted \n\n{}\n\nremote key used {}\n", decoded_msg, their_key)),
+            Ok((decoded_msg, their_key)) => Ok(println_succ!("{}\n\nremote key used {}\n", decoded_msg, their_key)),
             Err(err) => Err(println_err!("Indy SDK error occurred {:?}", err)),
         };
 

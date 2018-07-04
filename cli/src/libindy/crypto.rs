@@ -3,8 +3,8 @@ use super::{ErrorCode,IndyHandle};
 
 use libc::c_char;
 use std::ffi::CString;
+use base64;
 
-use rust_base58::FromBase58;
 
 pub struct Crypto {}
 
@@ -13,7 +13,7 @@ impl Crypto {
 
     pub fn encrypt(their_key: &str, msg: &str) -> Result<String, ErrorCode>
     {
-        let (receiver, command_handle, cb) =  super::callbacks::_closure_to_cb_ec_message58();
+        let (receiver, command_handle, cb) =  super::callbacks::_closure_to_cb_ec_message64();
 
         let their_key = CString::new(their_key).unwrap();
         let message = CString::new(msg).unwrap();
@@ -29,12 +29,12 @@ impl Crypto {
         super::results::result_to_string(err, receiver)
     }
 
-    pub fn decrypt(wallet_handle: IndyHandle, my_key: &str, base58msg: &str) ->Result<String, ErrorCode>
+    pub fn decrypt(wallet_handle: IndyHandle, my_key: &str, base64msg: &str) ->Result<String, ErrorCode>
     {
         let (receiver, command_handle, cb) =  super::callbacks::_closure_to_cb_ec_message();
 
         let my_key = CString::new(my_key).unwrap();
-        let vec = base58msg.from_base58().unwrap();
+        let vec = base64::decode(base64msg).unwrap();
 
 
         let err = unsafe {
@@ -46,7 +46,7 @@ impl Crypto {
     pub fn encrypt_dh(wallet_handle : IndyHandle, my_key: &str, their_key: &str , msg: &str) ->Result<String,ErrorCode>
     {
 
-        let (receiver, command_handle, cb) =  super::callbacks::_closure_to_cb_ec_message58();
+        let (receiver, command_handle, cb) =  super::callbacks::_closure_to_cb_ec_message64();
 
         let my_key = CString::new(my_key).unwrap();
         let their_key = CString::new(their_key).unwrap();
@@ -67,12 +67,12 @@ impl Crypto {
         super::results::result_to_string(err, receiver)
 
     }
-    pub fn decrypt_dh(wallet_handle: IndyHandle, my_key: &str, base58msg: &str) ->Result<(String,String), ErrorCode>
+    pub fn decrypt_dh(wallet_handle: IndyHandle, my_key: &str, base64msg: &str) ->Result<(String,String), ErrorCode>
     {
         let (receiver, command_handle, cb) =  super::callbacks::_closure_to_cb_ec_message_withkey();
 
         let my_key = CString::new(my_key).unwrap();
-        let vec = base58msg.from_base58().unwrap();
+        let vec = base64::decode(base64msg).unwrap();
 
 
         let err = unsafe {
