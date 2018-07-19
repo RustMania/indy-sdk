@@ -22,11 +22,33 @@ pub struct SchemaV1 {
     pub seq_no: Option<u32>,
 }
 
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SchemaV2 {
+    pub id: String,
+    pub name: String,
+    pub version: String,
+    #[serde(rename = "superSchemaId")]
+    pub super_schema_id: String,
+    #[serde(rename = "isAbstract")]
+    pub is_abstract: String,
+    #[serde(rename = "isFinal")]
+    pub is_final: String,
+    #[serde(rename = "isTemplate")]
+    pub is_template: String,
+    #[serde(rename = "attrNames")]
+    pub attr_names: HashSet<String>,
+    pub seq_no: Option<u32>,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "ver")]
 pub enum Schema {
     #[serde(rename = "1.0")]
-    SchemaV1(SchemaV1)
+    SchemaV1(SchemaV1),
+    #[serde(rename = "2.0")]
+    SchemaV2(SchemaV2)
 }
 
 impl Schema {
@@ -42,7 +64,8 @@ impl<'a> JsonDecodable<'a> for Schema {}
 impl From<Schema> for SchemaV1 {
     fn from(schema: Schema) -> Self {
         match schema {
-            Schema::SchemaV1(schema) => schema
+            Schema::SchemaV1(schema) => schema,
+            Schema::SchemaV2(schema) => { let s = SchemaV1 { id: schema.id, name: schema.name, version: schema.version, attr_names: schema.attr_names, seq_no: schema.seq_no }; s}
         }
     }
 }
