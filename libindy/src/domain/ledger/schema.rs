@@ -20,7 +20,7 @@ impl SchemaOperation {
     pub fn new(data: SchemaOperationData) -> SchemaOperation {
         SchemaOperation {
             data,
-            _type: HIGH_LEVEL_SCHEMA.to_string()
+            _type: SCHEMA.to_string()
         }
     }
 }
