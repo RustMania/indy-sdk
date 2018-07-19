@@ -1,89 +1,112 @@
 extern crate sodiumoxide;
 
+use self::sodiumoxide::crypto::aead::chacha20poly1305_ietf;
+use self::sodiumoxide::utils;
+
 use errors::common::CommonError;
 
-use self::sodiumoxide::crypto::aead::chacha20poly1305_ietf;
-use sodiumoxide::crypto::auth::hmacsha256;
-use utils::byte_array::_clone_into_array;
+pub const KEYBYTES: usize = chacha20poly1305_ietf::KEYBYTES;
+pub const NONCEBYTES: usize = chacha20poly1305_ietf::NONCEBYTES;
+pub const TAGBYTES: usize = chacha20poly1305_ietf::TAGBYTES;
 
-pub struct ChaCha20Poly1305IETF {}
+sodium_type!(Key, chacha20poly1305_ietf::Key, KEYBYTES);
+sodium_type!(Nonce, chacha20poly1305_ietf::Nonce, NONCEBYTES);
 
-impl ChaCha20Poly1305IETF {
-    pub const NONCEBYTES: usize = chacha20poly1305_ietf::NONCEBYTES;
-    pub const KEYBYTES: usize = chacha20poly1305_ietf::KEYBYTES;
-    pub const TAGBYTES: usize = chacha20poly1305_ietf::TAGBYTES;
-
-    pub fn create_key() -> Vec<u8> {
-        chacha20poly1305_ietf::gen_key()[..].to_vec()
+impl Nonce {
+    pub fn increment(&mut self) {
+        utils::increment_le(&mut (self.0).0);
     }
+}
 
-    #[allow(dead_code)]
-    pub fn gen_nonce() -> Vec<u8> {
-        chacha20poly1305_ietf::gen_nonce()[..].to_vec()
-    }
+pub fn gen_key() -> Key {
+    Key(chacha20poly1305_ietf::gen_key())
+}
 
-    pub fn hmacsha256_authenticate(data: &[u8], hmac_key: &[u8]) -> Vec<u8> {
-        hmacsha256::authenticate(
-            data,
-            &hmacsha256::Key(_clone_into_array(hmac_key))
-        )[..].to_vec()
-    }
+#[allow(dead_code)]
+pub fn gen_nonce() -> Nonce {
+    Nonce(chacha20poly1305_ietf::gen_nonce())
+}
 
-    pub fn encrypt(data: &[u8], key: &[u8], nonce: Option<&[u8]>) -> (Vec<u8>, Vec<u8>) {
-        let nonce = match nonce {
-            Some(n) => chacha20poly1305_ietf::Nonce(_clone_into_array(n)),
-            None => chacha20poly1305_ietf::gen_nonce()
-        };
+pub fn gen_nonce_and_encrypt(data: &[u8], key: &Key) -> (Vec<u8>, Nonce) {
+    let nonce = gen_nonce();
 
-        (chacha20poly1305_ietf::seal(
-            data,
-            None,
-            &nonce,
-            &chacha20poly1305_ietf::Key(_clone_into_array(key))
-        ),
-         nonce[..].to_vec())
-    }
+    let encrypted_data = chacha20poly1305_ietf::seal(
+        data,
+        None,
+        &nonce.0,
+        &key.0
+    );
 
-    pub fn decrypt(data: &[u8], key: &[u8], nonce: &[u8]) -> Result<Vec<u8>, CommonError> {
-        if nonce.len() != chacha20poly1305_ietf::NONCEBYTES {
-            return Err(CommonError::InvalidStructure(format!("Invalid nonce")));
-        }
+    (encrypted_data, nonce)
+}
 
-        chacha20poly1305_ietf::open(
-            &data,
-            None,
-            &chacha20poly1305_ietf::Nonce(_clone_into_array(nonce)),
-            &chacha20poly1305_ietf::Key(_clone_into_array(key))
-        )
-            .map_err(|err| CommonError::InvalidStructure(format!("Unable to decrypt data: {:?}", err)))
-    }
+pub fn encrypt(data: &[u8], key: &Key, nonce: &Nonce) -> Vec<u8> {
+    chacha20poly1305_ietf::seal(
+        data,
+        None,
+        &nonce.0,
+        &key.0,
+    )
+}
+
+pub fn decrypt(data: &[u8], key: &Key, nonce: &Nonce) -> Result<Vec<u8>, CommonError> {
+    chacha20poly1305_ietf::open(
+        &data,
+        None,
+        &nonce.0,
+        &key.0,
+    )
+        .map_err(|err| CommonError::InvalidStructure(format!("Unable to decrypt data: {:?}", err)))
 }
 
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    extern crate rmp_serde;
 
+    use super::*;
     use self::sodiumoxide::randombytes;
 
     #[test]
     fn encrypt_decrypt_works() {
         let data = randombytes::randombytes(100);
-        let key = ChaCha20Poly1305IETF::create_key();
+        let key = gen_key();
 
-        let (c, nonce) = ChaCha20Poly1305IETF::encrypt(&data, &key, None);
-        let u = ChaCha20Poly1305IETF::decrypt(&c, &key, &nonce).unwrap();
+        let (c, nonce) = gen_nonce_and_encrypt(&data, &key);
+        let u = decrypt(&c, &key, &nonce).unwrap();
+
         assert_eq!(data, u);
     }
 
     #[test]
     fn encrypt_decrypt_works_for_nonce() {
         let data = randombytes::randombytes(16);
-        let key = ChaCha20Poly1305IETF::create_key();
-        let nonce = ChaCha20Poly1305IETF::gen_nonce();
 
-        let (c, nonce) = ChaCha20Poly1305IETF::encrypt(&data, &key, Some(&nonce));
-        let u = ChaCha20Poly1305IETF::decrypt(&c, &key, &nonce).unwrap();
-        assert_eq!(data, u);
+        let key = gen_key();
+        let nonce = gen_nonce();
+        let c = encrypt(&data, &key, &nonce);
+        let u = decrypt(&c, &key, &nonce).unwrap();
+
+        assert_eq!(data, u)
     }
+
+    #[test]
+    fn nonce_serialize_deserialize_works() {
+        let nonce = gen_nonce();
+        let serialized = rmp_serde::to_vec(&nonce).unwrap();
+        let deserialized: Nonce = rmp_serde::from_slice(&serialized).unwrap();
+
+        assert_eq!(serialized.len(), NONCEBYTES + 2);
+        assert_eq!(nonce, deserialized)
+    }
+    #[test]
+    fn key_serialize_deserialize_works() {
+        let key = gen_key();
+        let serialized = rmp_serde::to_vec(&key).unwrap();
+        let deserialized: Key = rmp_serde::from_slice(&serialized).unwrap();
+
+        assert_eq!(serialized.len(), KEYBYTES + 2);
+        assert_eq!(key, deserialized)
+    }
+
 }

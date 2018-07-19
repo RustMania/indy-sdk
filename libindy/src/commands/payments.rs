@@ -259,7 +259,7 @@ impl PaymentsCommandExecutor {
             Ok(res) => {
                 //TODO: think about deleting payment_address on wallet save failure
                 self.wallet_service.check(wallet_handle).and(
-                    self.wallet_service.add_record(wallet_handle, &self.wallet_service.add_prefix("PaymentAddress"), &res, &res, "{}").map(|_| res)
+                    self.wallet_service.add_record(wallet_handle, &self.wallet_service.add_prefix("PaymentAddress"), &res, &res, &HashMap::new()).map(|_| res)
                 ).map_err(IndyError::from)
             }
             Err(err) => Err(IndyError::from(err))
@@ -282,7 +282,7 @@ impl PaymentsCommandExecutor {
                 while let Ok(Some(payment_address)) = search.fetch_next_record() {
                     match payment_address.get_value() {
                         Some(value) => list_addresses.push(value.to_string()),
-                        None => cb(Err(IndyError::CommonError(CommonError::InvalidState(format!("Record value not found")))))
+                        None => cb(Err(IndyError::CommonError(CommonError::InvalidState("Record value not found".to_string()))))
                     }
                 }
 
