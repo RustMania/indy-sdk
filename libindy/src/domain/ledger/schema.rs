@@ -2,7 +2,7 @@ extern crate serde;
 extern crate serde_json;
 extern crate indy_crypto;
 
-use super::constants::{SCHEMA, GET_SCHEMA};
+use super::constants::{SCHEMA, GET_SCHEMA, HIGH_LEVEL_SCHEMA};
 use super::response::GetReplyResultV1;
 
 use self::indy_crypto::utils::json::{JsonDecodable, JsonEncodable};
@@ -20,7 +20,7 @@ impl SchemaOperation {
     pub fn new(data: SchemaOperationData) -> SchemaOperation {
         SchemaOperation {
             data,
-            _type: SCHEMA.to_string()
+            _type: HIGH_LEVEL_SCHEMA.to_string()
         }
     }
 }
