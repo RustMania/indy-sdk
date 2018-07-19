@@ -5,7 +5,7 @@ use indy::api::non_secrets::*;
 
 use utils::callback::CallbackUtils;
 use utils::wallet::WalletUtils;
-use utils::constants::POOL;
+use utils::constants::WALLET_CREDENTIALS;
 use utils::test::TestUtils;
 use utils::types::WalletRecord;
 
@@ -14,7 +14,7 @@ use std::ptr::null;
 use std::sync::{Once, ONCE_INIT};
 use std::collections::HashMap;
 
-pub const SEARCH_COMMON_WALLET: &'static str = "SEARCH_COMMON_WALLET";
+pub const SEARCH_COMMON_WALLET_CONFIG: &'static str = r#"{"id":"search_common"}"#;
 pub const TYPE: &'static str = "TestType";
 pub const TYPE_2: &'static str = "TestType2";
 pub const ID: &'static str = "RecordId";
@@ -230,23 +230,23 @@ impl NonSecretsUtils {
     }
 
     pub fn record_1() -> WalletRecord {
-        WalletRecord { id: ID.to_string(), type_: None, value: Some(VALUE.to_string()), tags: Some(NonSecretsUtils::tags_1()) }
+        WalletRecord { id: ID.to_string(), type_: Some(TYPE.to_string()), value: Some(VALUE.to_string()), tags: Some(NonSecretsUtils::tags_1()) }
     }
 
     pub fn record_2() -> WalletRecord {
-        WalletRecord { id: ID_2.to_string(), type_: None, value: Some(VALUE_2.to_string()), tags: Some(NonSecretsUtils::tags_2()) }
+        WalletRecord { id: ID_2.to_string(), type_: Some(TYPE.to_string()), value: Some(VALUE_2.to_string()), tags: Some(NonSecretsUtils::tags_2()) }
     }
 
     pub fn record_3() -> WalletRecord {
-        WalletRecord { id: ID_3.to_string(), type_: None, value: Some(VALUE_3.to_string()), tags: Some(NonSecretsUtils::tags_3()) }
+        WalletRecord { id: ID_3.to_string(), type_: Some(TYPE.to_string()), value: Some(VALUE_3.to_string()), tags: Some(NonSecretsUtils::tags_3()) }
     }
 
     pub fn record_4() -> WalletRecord {
-        WalletRecord { id: ID_4.to_string(), type_: None, value: Some(VALUE_4.to_string()), tags: Some(NonSecretsUtils::tags_4()) }
+        WalletRecord { id: ID_4.to_string(), type_: Some(TYPE.to_string()), value: Some(VALUE_4.to_string()), tags: Some(NonSecretsUtils::tags_4()) }
     }
 
     pub fn record_5() -> WalletRecord {
-        WalletRecord { id: ID_5.to_string(), type_: None, value: Some(VALUE_5.to_string()), tags: Some(NonSecretsUtils::tags_5()) }
+        WalletRecord { id: ID_5.to_string(), type_: Some(TYPE.to_string()), value: Some(VALUE_5.to_string()), tags: Some(NonSecretsUtils::tags_5()) }
     }
 
     pub fn populate_wallet_for_search() {
@@ -259,8 +259,8 @@ impl NonSecretsUtils {
             TestUtils::cleanup_storage();
 
             //1. Create and Open wallet
-            WalletUtils::create_wallet(POOL, SEARCH_COMMON_WALLET, None, None, None).unwrap();
-            let wallet_handle = WalletUtils::open_wallet(SEARCH_COMMON_WALLET, None, None).unwrap();
+            WalletUtils::create_wallet(SEARCH_COMMON_WALLET_CONFIG, WALLET_CREDENTIALS).unwrap();
+            let wallet_handle = WalletUtils::open_wallet(SEARCH_COMMON_WALLET_CONFIG, WALLET_CREDENTIALS).unwrap();
 
             let record_1 = NonSecretsUtils::record_1();
             NonSecretsUtils::add_wallet_record(wallet_handle,

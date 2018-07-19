@@ -117,7 +117,7 @@ public class Ledger extends IndyJava.API {
 	private static Callback parseRegistryResponseCb = new Callback() {
 
 		@SuppressWarnings({"unused", "unchecked"})
-		public void callback(int xcommand_handle, int err, String id, String object_json, int timestamp) {
+		public void callback(int xcommand_handle, int err, String id, String object_json, long timestamp) {
 
 			CompletableFuture<ParseRegistryResponseResult> future = (CompletableFuture<ParseRegistryResponseResult>) removeFuture(xcommand_handle);
 			if (! checkCallback(future, err)) return;
@@ -736,12 +736,17 @@ public class Ledger extends IndyJava.API {
 	 * Builds a GET_TXN request. Request to get any transaction by its seq_no.
 	 *
 	 * @param submitterDid DID of read request sender.
-	 * @param seqNo         seq_no of transaction in ledger.
+	 * @param ledgerType  (Optional) type of the ledger the requested transaction belongs to:
+	 *    DOMAIN - used default,
+	 *    POOL,
+	 *    CONFIG
+	 * @param seqNo         requested transaction sequence number as it's stored on Ledger.
 	 * @return A future resolving to a request result as json.
 	 * @throws IndyException Thrown if an error occurs when calling the underlying SDK.
 	 */
 	public static CompletableFuture<String> buildGetTxnRequest(
 			String submitterDid,
+			String ledgerType,
 			int seqNo) throws IndyException {
 
 		ParamGuard.notNullOrWhiteSpace(submitterDid, "submitterDid");
@@ -752,6 +757,7 @@ public class Ledger extends IndyJava.API {
 		int result = LibIndy.api.indy_build_get_txn_request(
 				commandHandle,
 				submitterDid,
+				ledgerType,
 				seqNo,
 				buildRequestCb);
 
@@ -1050,7 +1056,7 @@ public class Ledger extends IndyJava.API {
 	public static CompletableFuture<String> buildGetRevocRegRequest(
 			String submitterDid,
 			String revocRegDefId,
-			int timestamp) throws IndyException {
+			long timestamp) throws IndyException {
 
 		ParamGuard.notNullOrWhiteSpace(submitterDid, "submitterDid");
 		ParamGuard.notNullOrWhiteSpace(revocRegDefId, "id");
@@ -1116,8 +1122,8 @@ public class Ledger extends IndyJava.API {
 	public static CompletableFuture<String> buildGetRevocRegDeltaRequest(
 			String submitterDid,
 			String revocRegDefId,
-			int from,
-			int to) throws IndyException {
+			long from,
+			long to) throws IndyException {
 
 		ParamGuard.notNullOrWhiteSpace(submitterDid, "submitterDid");
 		ParamGuard.notNullOrWhiteSpace(revocRegDefId, "id");

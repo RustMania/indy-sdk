@@ -1,7 +1,4 @@
-extern crate serde_json;
-extern crate indy_crypto;
-
-use self::serde_json::Value;
+use api::ledger::{CustomFree, CustomTransactionParser};
 
 use errors::common::CommonError;
 use errors::pool::PoolError;
@@ -14,18 +11,15 @@ use domain::crypto::key::Key;
 use domain::crypto::did::Did;
 use services::wallet::{WalletService, RecordOptions};
 use services::ledger::LedgerService;
+use utils::crypto::base58;
+use utils::crypto::signature_serializer::serialize_signature;
 
-
-use super::utils::check_wallet_and_pool_handles_consistency;
-
+use serde_json;
+use serde_json::Value;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::error::Error;
 use std::rc::Rc;
-
-use utils::crypto::base58::Base58;
-
-use utils::crypto::signature_serializer::serialize_signature;
 
 pub enum LedgerCommand {
     SignAndSubmitRequest(
@@ -113,6 +107,7 @@ pub enum LedgerCommand {
         Box<Fn(Result<String, IndyError>) + Send>),
     BuildGetTxnRequest(
         String, // submitter did
+        Option<String>, // ledger type
         i32, // data
         Box<Fn(Result<String, IndyError>) + Send>),
     BuildPoolConfigRequest(
@@ -170,7 +165,12 @@ pub enum LedgerCommand {
         Box<Fn(Result<String, IndyError>) + Send>),
     ParseGetRevocRegDeltaResponse(
         String, // get revocation registry delta response
-        Box<Fn(Result<(String, String, u64), IndyError>) + Send>)
+        Box<Fn(Result<(String, String, u64), IndyError>) + Send>),
+    RegisterSPParser(
+        String, // txn type
+        CustomTransactionParser,
+        CustomFree,
+        Box<Fn(Result<(), IndyError>) + Send>),
 }
 
 pub struct LedgerCommandExecutor {
@@ -208,9 +208,17 @@ impl LedgerCommandExecutor {
             }
             LedgerCommand::SubmitAck(handle, result) => {
                 info!(target: "ledger_command_executor", "SubmitAck command received");
-                self.send_callbacks.borrow_mut().remove(&handle)
-                    .expect("Expect callback to process ack command")
-                    (result.map_err(IndyError::from));
+                match self.send_callbacks.borrow_mut().remove(&handle) {
+                    Some(cb) => cb(result.map_err(IndyError::from)),
+                    None => {
+                        error!("Can't process LedgerCommand::SubmitAck for handle {} with result {:?} - appropriate callback not found!",
+                               handle, result);
+                    }
+                }
+            }
+            LedgerCommand::RegisterSPParser(txn_type, parser, free, cb) => {
+                info!(target: "ledger_command_executor", "RegisterSPParser command received");
+                cb(self.register_sp_parser(&txn_type, parser, free));
             }
             LedgerCommand::SignRequest(wallet_handle, submitter_did, request_json, cb) => {
                 info!(target: "ledger_command_executor", "SignRequest command received");
@@ -281,9 +289,9 @@ impl LedgerCommandExecutor {
                 info!(target: "ledger_command_executor", "BuildGetValidatorInfoRequest command received");
                 cb(self.build_get_validator_info_request(&submitter_did));
             }
-            LedgerCommand::BuildGetTxnRequest(submitter_did, data, cb) => {
+            LedgerCommand::BuildGetTxnRequest(submitter_did, ledger_type, seq_no, cb) => {
                 info!(target: "ledger_command_executor", "BuildGetTxnRequest command received");
-                cb(self.build_get_txn_request(&submitter_did, data));
+                cb(self.build_get_txn_request(&submitter_did, ledger_type.as_ref().map(String::as_str), seq_no));
             }
             LedgerCommand::BuildPoolConfigRequest(submitter_did, writes, force, cb) => {
                 info!(target: "ledger_command_executor", "BuildPoolConfigRequest command received");
@@ -335,6 +343,15 @@ impl LedgerCommandExecutor {
         };
     }
 
+    fn register_sp_parser(&self, txn_type: &str,
+                          parser: CustomTransactionParser, free: CustomFree) -> Result<(), IndyError> {
+        debug!("register_sp_parser >>> txn_type: {:?}, parser: {:?}, free: {:?}",
+               txn_type, parser, free);
+
+        PoolService::register_sp_parser(txn_type, parser, free)
+            .map_err(IndyError::from)
+    }
+
     fn sign_and_submit_request(&self,
                                pool_handle: i32,
                                wallet_handle: i32,
@@ -344,8 +361,6 @@ impl LedgerCommandExecutor {
         debug!("sign_and_submit_request >>> pool_handle: {:?}, wallet_handle: {:?}, submitter_did: {:?}, request_json: {:?}",
                pool_handle, wallet_handle, submitter_did, request_json);
 
-        check_wallet_and_pool_handles_consistency!(self.wallet_service, self.pool_service,
-                                                   wallet_handle, pool_handle, cb);
         match self._sign_request(wallet_handle, submitter_did, request_json, SignatureType::Single) {
             Ok(signed_request) => self.submit_request(pool_handle, signed_request.as_str(), cb),
             Err(err) => cb(Err(err))
@@ -379,20 +394,20 @@ impl LedgerCommandExecutor {
                 request.remove("signature");
                 request.remove("signatures");
                 request
-            }).ok_or(CommonError::InvalidState(format!("Cannot deserialize request")))?;
+            }).ok_or(CommonError::InvalidState("Cannot deserialize request".to_string()))?;
 
         let serialized_request = serialize_signature(message_without_signatures)?;
         let signature = self.crypto_service.sign(&my_key, &serialized_request.as_bytes().to_vec())?;
 
         match signature_type {
-            SignatureType::Single => { request["signature"] = Value::String(Base58::encode(&signature)); }
+            SignatureType::Single => { request["signature"] = Value::String(base58::encode(&signature)); }
             SignatureType::Multi => {
                 request.as_object_mut()
                     .map(|request| {
                         if !request.contains_key("signatures") {
                             request.insert("signatures".to_string(), Value::Object(serde_json::Map::new()));
                         }
-                        request["signatures"].as_object_mut().unwrap().insert(submitter_did.to_string(), Value::String(Base58::encode(&signature)));
+                        request["signatures"].as_object_mut().unwrap().insert(submitter_did.to_string(), Value::String(base58::encode(&signature)));
                     });
             }
         }
@@ -644,7 +659,7 @@ impl LedgerCommandExecutor {
     }
 
     fn build_get_validator_info_request(&self,
-                             submitter_did: &str) -> Result<String, IndyError> {
+                                        submitter_did: &str) -> Result<String, IndyError> {
         info!("build_get_validator_info_request >>> submitter_did: {:?}", submitter_did);
 
         self.crypto_service.validate_did(submitter_did)?;
@@ -658,14 +673,14 @@ impl LedgerCommandExecutor {
 
     fn build_get_txn_request(&self,
                              submitter_did: &str,
-                             data: i32) -> Result<String, IndyError> {
-        debug!("build_get_txn_request >>> submitter_did: {:?}, data: {:?}",
-               submitter_did, data);
+                             ledger_type: Option<&str>,
+                             seq_no: i32) -> Result<String, IndyError> {
+        debug!("build_get_txn_request >>> submitter_did: {:?}, ledger_type: {:?}, seq_no: {:?}",
+               submitter_did, ledger_type, seq_no);
 
         self.crypto_service.validate_did(submitter_did)?;
 
-        let res = self.ledger_service.build_get_txn_request(submitter_did,
-                                                            data)?;
+        let res = self.ledger_service.build_get_txn_request(submitter_did, ledger_type, seq_no)?;
 
         debug!("build_get_txn_request <<< res: {:?}", res);
 

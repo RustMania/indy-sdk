@@ -1,9 +1,8 @@
 var test = require('ava')
 var indy = require('../')
 var cuid = require('cuid')
-var path = require('path')
 var initTestPool = require('./helpers/initTestPool')
-var indyHomeDir = require('home-dir')('.indy_client')
+var tempy = require('tempy')
 
 function sleep (ms) {
   return new Promise(function (resolve) {
@@ -25,10 +24,10 @@ async function waitUntilApplied (ph, req, cond) {
 
 test('ledger', async function (t) {
   var pool = await initTestPool()
-  var wName = 'wallet-' + cuid()
+  var walletConfig = {'id': 'wallet-' + cuid()}
   var walletCredentials = {'key': 'key'}
-  await indy.createWallet(pool.name, wName, 'default', null, walletCredentials)
-  var wh = await indy.openWallet(wName, null, walletCredentials)
+  await indy.createWallet(walletConfig, walletCredentials)
+  var wh = await indy.openWallet(walletConfig, walletCredentials)
   var [trusteeDid] = await indy.createAndStoreMyDid(wh, {seed: '000000000000000000000000Trustee1'})
   var [myDid, myVerkey] = await indy.createAndStoreMyDid(wh, {seed: '00000000000000000000000000000My1', cid: true})
   var schemaName = 'schema-' + cuid()
@@ -37,7 +36,7 @@ test('ledger', async function (t) {
   // Nym
   var req = await indy.buildNymRequest(trusteeDid, myDid, myVerkey, null, 'TRUSTEE')
   var res = await indy.signAndSubmitRequest(pool.handle, wh, trusteeDid, req)
-  t.is(res.result.verkey, myVerkey)
+  t.is(res.result.txn.data.verkey, myVerkey)
 
   req = await indy.buildGetNymRequest(trusteeDid, myDid)
   t.is(req.identifier, trusteeDid)
@@ -53,9 +52,9 @@ test('ledger', async function (t) {
   var data = await indy.parseGetSchemaResponse(res)
   t.is(data[0], schemaId)
   t.is(data[1].name, schema.name)
-  req = await indy.buildGetTxnRequest(myDid, data[1].seqNo)
-  res = await waitUntilApplied(pool.handle, req, res => res['result']['data']['seqNo'] != null)
-  t.is(res.result.data.data.name, schema.name)
+  req = await indy.buildGetTxnRequest(myDid, null, data[1].seqNo)
+  res = await waitUntilApplied(pool.handle, req, res => res['result']['data']['txnMetadata']['seqNo'] != null)
+  t.is(res.result.data.txn.data.data.name, schema.name)
   schema = data[1]
 
   // Node
@@ -106,14 +105,14 @@ test('ledger', async function (t) {
 
   // Revoc Reg Def
   var writerH = await indy.openBlobStorageWriter('default', {
-    'base_dir': path.join(indyHomeDir, 'tails'),
+    'base_dir': tempy.directory(),
     'uri_pattern': ''
   })
   var [revRegDefId, revRegDef, revRegEntry] = await indy.issuerCreateAndStoreRevocReg(wh, myDid, null, 'tag1', credDefId, {max_cred_num: 5}, writerH)
 
   req = await indy.buildRevocRegDefRequest(myDid, revRegDef)
   res = await indy.signAndSubmitRequest(pool.handle, wh, myDid, req)
-  t.is(res.result.id, revRegDefId)
+  t.is(res.result.txn.data.id, revRegDefId)
 
   req = await indy.buildGetRevocRegDefRequest(myDid, revRegDefId)
   res = await waitUntilApplied(pool.handle, req, res => res['result']['seqNo'] != null)
@@ -142,6 +141,6 @@ test('ledger', async function (t) {
   t.is(typeof res[2], 'number')
 
   await indy.closeWallet(wh)
-  await indy.deleteWallet(wName, walletCredentials)
+  await indy.deleteWallet(walletConfig, walletCredentials)
   pool.cleanup()
 })
