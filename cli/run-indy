@@ -1,0 +1,2 @@
+#!/bin/bash -x
+LD_LIBRARY_PATH=../libindy/target/debug ./target/debug/indy-cli
