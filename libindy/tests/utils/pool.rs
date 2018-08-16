@@ -26,11 +26,27 @@ struct PoolConfig {
     pub genesis_txn: String
 }
 
+pub static mut test_pool_handle: i32 = 0;
+
+
 impl JsonEncodable for PoolConfig {}
 
 pub struct PoolUtils {}
 
 impl PoolUtils {
+
+    pub fn set_test_pool_handle(h : i32)
+    {
+        unsafe {
+            test_pool_handle = h;
+        }
+    }
+
+    pub fn get_test_pool_handle() -> i32
+    {
+        unsafe { test_pool_handle }
+    }
+
     pub fn create_genesis_txn_file(pool_name: &str,
                                    txn_file_data: &str,
                                    txn_file_path: Option<&Path>) -> PathBuf {
