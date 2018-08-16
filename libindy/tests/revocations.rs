@@ -31,6 +31,7 @@ mod utils;
 
 use utils::wallet::WalletUtils;
 use utils::anoncreds::AnoncredsUtils;
+use utils::ledger::LedgerUtils;
 //use utils::blob_storage::BlobStorageUtils;
 use utils::anoncreds::{COMMON_MASTER_SECRET, CREDENTIAL1_ID, CREDENTIAL2_ID, CREDENTIAL3_ID, ANONCREDS_WALLET_CONFIG};
 use utils::test::TestUtils;
@@ -51,19 +52,74 @@ use utils::domain::anoncreds::revocation_registry::RevocationRegistry;
 //use std::collections::HashSet;
 
 
+use utils::pool::PoolUtils;
+use utils::did::DidUtils;
+use std::path::Path;
+
+
 mod demos {
 
 
     use super::*;
 
 
+
+    fn open_pool_ledger()  {
+
+
+        PoolUtils::set_protocol_version(PROTOCOL_VERSION).unwrap();
+
+        let pool_name = "pool_open";
+        let txn_file_path = PoolUtils::create_genesis_txn_file_for_test_pool(pool_name, None, Some(Path::new("pool_transactions_genesis")));
+        let pool_config = PoolUtils::pool_config_json(txn_file_path.as_path());
+        PoolUtils::create_pool_ledger_config(pool_name, Some(pool_config.as_str())).unwrap();
+
+        PoolUtils::set_test_pool_handle(PoolUtils::open_pool_ledger(pool_name, Some(&pool_config)).unwrap());
+
+    }
+
+    fn close_pool_ledger() {
+
+        PoolUtils::close(PoolUtils::get_test_pool_handle()).unwrap();
+    }
+
+
+    fn indy_schema_request(issuer_did: &str, pool_handle: i32, wallet_handle: i32 , schema_json : &str) {
+
+        println!("schema JSON {}",schema_json);
+
+        let schema_request = LedgerUtils::build_schema_request(&issuer_did, &schema_json).unwrap();
+
+        println!("schema request: {}",schema_request);
+
+        let schema_response = LedgerUtils::sign_and_submit_request(pool_handle, wallet_handle, &issuer_did, &schema_request).unwrap();
+
+        println!("schema submit: {}",schema_response);
+
+    }
+
+    fn indy_cred_def_request(issuer_did: &str, pool_handle: i32, wallet_handle: i32,  cred_def_json: &str )
+    {
+        let cred_def_request = LedgerUtils::build_cred_def_txn(&issuer_did, &cred_def_json).unwrap();
+
+        println!("cred def {}\ncred def request {}",cred_def_json,cred_def_request);
+
+        let cred_def_response  = LedgerUtils::sign_and_submit_request(pool_handle, wallet_handle, &issuer_did, &cred_def_request).unwrap();
+
+        println!("cred def submit: {}", cred_def_response);
+    }
+
     #[cfg(feature = "revocation_tests")]
     #[test]
     fn anoncreds_works_for_revocation_proof_for_issuance_and_proving_three_credential() {
         TestUtils::cleanup_storage();
 
+        open_pool_ledger();
+
         // Issuer creates wallet, gets wallet handle
         let issuer_wallet_handle = WalletUtils::create_and_open_default_wallet().unwrap();
+
+        let ( issuer_did, _ ) = DidUtils::create_store_and_publish_my_did_from_trustee(issuer_wallet_handle, PoolUtils::get_test_pool_handle()).unwrap();
 
         // Prover1 creates wallet, gets wallet handle
         let prover1_wallet_handle = WalletUtils::create_and_open_default_wallet().unwrap();
@@ -79,10 +135,12 @@ mod demos {
             cred_def_id, cred_def_json,
             rev_reg_id, revoc_reg_def_json, _,
             blob_storage_reader_handle) = AnoncredsUtils::multi_steps_issuer_revocation_preparation(issuer_wallet_handle,
-                                                                                                    ISSUER_DID,
+                                                                                                    &issuer_did,
                                                                                                     GVT_SCHEMA_NAME,
                                                                                                     GVT_SCHEMA_ATTRIBUTES,
                                                                                                     r#"{"max_cred_num":5, "issuance_type":"ISSUANCE_ON_DEMAND"}"#);
+
+
 
         // ISSUANCE CREDENTIAL FOR PROVER1
 
@@ -604,6 +662,8 @@ fn anoncreds_works_for_issuance_by_default_revocation_strategy_revoke_credential
     WalletUtils::close_wallet(issuer_wallet_handle).unwrap();
     WalletUtils::close_wallet(prover_wallet_handle).unwrap();
 
+
+    close_pool_ledger();
     TestUtils::cleanup_storage();
 }
 

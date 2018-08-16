@@ -5,11 +5,13 @@ use indy::api::ErrorCode;
 use indy::api::anoncreds::*;
 
 use utils::callback::CallbackUtils;
+use utils::ledger::LedgerUtils;
 use utils::environment::EnvironmentUtils;
 use utils::wallet::WalletUtils;
 use utils::blob_storage::BlobStorageUtils;
 use utils::test::TestUtils;
 use utils::pool::PoolUtils;
+use utils::pool::test_pool_handle;
 use utils::types::CredentialOfferInfo;
 
 use std::ffi::CString;
@@ -41,6 +43,24 @@ pub const CREDENTIAL3_ID: &'static str = "credential3_id";
 pub const DELIMITER: &'static str = ":";
 pub const CRED_DEF_MARKER: &'static str = "3";
 
+
+#[derive(Deserialize, Eq, PartialEq, Debug)]
+pub enum ResponseType {
+    REQNACK,
+    REPLY,
+    REJECT
+}
+
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Response<T> {
+    pub op: ResponseType,
+    pub reason: Option<String>,
+    pub result: Option<T>,
+}
+
+
 macro_rules! map (
     { $($key:expr => $value:expr),+ } => {
         {
@@ -71,6 +91,59 @@ impl AnoncredsUtils {
                                       cb);
 
         super::results::result_to_string_string(err, receiver)
+    }
+
+    pub fn issuer_submit_schema(wallet_handle: i32 , issuer_did: &str, schema_json : &str) {
+
+        //println!("schema JSON {}",schema_json);
+
+
+        let schema_request = LedgerUtils::build_schema_request(&issuer_did, &schema_json).unwrap();
+
+        //println!("schema request: {}",schema_request);
+
+        let schema_response = LedgerUtils::sign_and_submit_request(PoolUtils::get_test_pool_handle(), wallet_handle, &issuer_did, &schema_request).unwrap();
+
+        //println!("schema submit: {}",schema_response);
+
+    }
+
+
+
+    pub fn issuer_get_schema( issuer_did: &str ,schema_id : &str) ->Result<Option<String>, ErrorCode>
+    {
+        let schema_request = LedgerUtils::build_get_schema_request(issuer_did,schema_id)?;
+        let raw_response = LedgerUtils::submit_request(PoolUtils::get_test_pool_handle(), schema_request.as_str())?;
+        let response = serde_json::from_str::<Response<serde_json::Value>>(&raw_response)
+            .map_err(|err| ErrorCode::CommonIOError)?;
+
+
+        //println!("response.result {}", response.result.unwrap().as_str().unwrap());
+
+
+
+        return Ok(
+            {
+                match response.result {
+                    Some(value) => match value.as_str() {
+                        Some(str) => Some(String::from(str)),
+                        None => None
+                    },
+                    None => None
+                }
+            });
+
+    }
+
+    pub fn issuer_submit_cred_def(issuer_did: &str, wallet_handle: i32,  cred_def_json: &str )
+    {
+        let cred_def_request = LedgerUtils::build_cred_def_txn(&issuer_did, &cred_def_json).unwrap();
+
+        //println!("cred def {}\ncred def request {}",cred_def_json,cred_def_request);
+
+        let cred_def_response  = LedgerUtils::sign_and_submit_request(PoolUtils::get_test_pool_handle(), wallet_handle, &issuer_did, &cred_def_request).unwrap();
+
+        //println!("cred def submit: {}", cred_def_response);
     }
 
     pub fn issuer_create_credential_definition(wallet_handle: i32, issuer_did: &str, schema: &str, tag: &str,
@@ -918,6 +991,11 @@ impl AnoncredsUtils {
                                                                             SCHEMA_VERSION,
                                                                             schema_attrs).unwrap();
 
+        AnoncredsUtils::issuer_submit_schema(wallet_handle,did,&schema_json);
+
+        // disabled : the function fails and it must be fixed
+        //let schema_json  = AnoncredsUtils::issuer_get_schema(did, &schema_id).unwrap().unwrap();
+
         // Issuer creates credential definition
         let (cred_def_id, cred_def_json) = AnoncredsUtils::issuer_create_credential_definition(wallet_handle,
                                                                                                did,
@@ -925,6 +1003,8 @@ impl AnoncredsUtils {
                                                                                                TAG_1,
                                                                                                None,
                                                                                                Some(&AnoncredsUtils::revocation_cred_def_config())).unwrap();
+
+        AnoncredsUtils::issuer_submit_cred_def( did, wallet_handle, &cred_def_json);
 
         // Issuer creates revocation registry
         let tails_writer_config = AnoncredsUtils::tails_writer_config();
