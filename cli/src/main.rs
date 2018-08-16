@@ -134,6 +134,7 @@ fn build_executor() -> CommandExecutor {
         .add_command(crypto::create_master_key::new())
         .add_command( crypto::create_credential_request::new())
         .add_command(crypto::create_credential::new())
+        .add_command(crypto::revocation::create_registry::new())
         .finalize_group()
         .finalize()
 }

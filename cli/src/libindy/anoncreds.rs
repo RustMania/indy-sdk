@@ -112,6 +112,32 @@ impl Anoncreds {
 
         super::results::result_to_string_string_string(err,receiver)
     }
+
+
+    pub fn create_and_store_revoc_reg(wallet: IndyHandle, issuer_did: &str, revoc_def_type: &str, tag: &str, cred_def_id: &str,
+                                      config_json: &str,tails_writer_handle: i32) -> Result<(String,String,String), ErrorCode>
+    {
+
+        let (receiver, command_handle, cb )
+        = super::callbacks::_closure_to_cb_ec_string_string_string();
+
+        let did = CString::new(issuer_did).unwrap();
+        let revoc_def_type = CString::new(revoc_def_type).unwrap();
+        let tag = CString::new(tag).unwrap();
+        let cred_def_id = CString::new(cred_def_id).unwrap();
+        let tails_config = CString::new(config_json).unwrap();
+
+
+        let err = unsafe {
+            indy_issuer_create_and_store_revoc_reg(command_handle,wallet,
+                                                   did.as_ptr(),revoc_def_type.as_ptr(),
+                                                   tag.as_ptr(),cred_def_id.as_ptr(),
+                                                   tails_config.as_ptr(),tails_writer_handle,
+                                                    cb)
+        };
+
+        super::results::result_to_string_string_string(err,receiver)
+    }
 }
 
 
@@ -181,6 +207,20 @@ extern {
                                                                      cred_json: *const c_char,
                                                                      cred_revoc_id: *const c_char,
                                                                      revoc_reg_delta_json: *const c_char)>) -> ErrorCode;
+
+
+    pub fn indy_issuer_create_and_store_revoc_reg(command_handle: i32,
+                                                         wallet_handle: i32,
+                                                         issuer_did: *const c_char,
+                                                         revoc_def_type: *const c_char,
+                                                         tag: *const c_char,
+                                                         cred_def_id: *const c_char,
+                                                         config_json: *const c_char,
+                                                         tails_writer_handle: i32,
+                                                         cb: Option<extern fn(xcommand_handle: i32, err: ErrorCode,
+                                                                              revoc_reg_id: *const c_char,
+                                                                              revoc_reg_def_json: *const c_char,
+                                                                              revoc_reg_entry_json: *const c_char)>) -> ErrorCode;
 
 
 

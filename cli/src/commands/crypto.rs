@@ -497,3 +497,64 @@ pub mod create_credential{
         res
     }
 }
+
+pub mod revocation  {
+
+    use super::*;
+
+    pub mod create_registry {
+        use super::*;
+
+        command!(CommandMetadata::build("revoc-reg", "Create revocation registry")
+                 .add_required_param("did", "DID of the issuer")
+                 .add_optional_param("type", "revocation definition type")
+                 .add_required_param("tag", "revocation definition tag")
+                 .add_required_param("cdef_id", "credential definition id")
+                 //.add_("tail_config", "tail configuration (JSON)")
+                .add_example("revoc-reg did=  tag= cdef_id= ")
+                .finalize());
+
+        fn execute(ctx: &CommandContext, params: &CommandParams) -> Result<(), ()> {
+            trace!("execute >> ctx {:?} params {:?}", ctx, params);
+
+            let issuer_did = get_str_param("did", params).map_err(error_err!())?;
+            let revoc_def_type = get_opt_str_param("type", params).map_err(error_err!())?;
+            let tag = get_str_param("tag", params).map_err(error_err!())?;
+            let cred_def_id = get_str_param("cdef_id",params).map_err(error_err!())?;
+
+
+
+            let wallet_handle =
+                match get_opened_wallet(ctx) {
+                    Some((handle, _)) => handle,
+                    None => {
+                        return Err(println_err!("No wallets opened"))
+                    }
+                };
+
+            let type_ = match revoc_def_type
+                {
+                    Some(revoc_def_type) => revoc_def_type,
+                    None => "CL_ACCUM"
+                };
+
+            //let rr_config =  "{ \"issuance_type\": \"ISSUANCE_BY_DEFAULT\" , \"max_cred_num\" : \"1000\" }";
+            let rr_config = "{}";
+            let tails_writer_handle = 1;
+
+            let res = Anoncreds::create_and_store_revoc_reg(wallet_handle, issuer_did , type_, tag, cred_def_id,
+
+                                                            rr_config,tails_writer_handle);
+
+
+            let res = match res {
+                Ok((rev_reg_id, revoc_reg_def_json, revoc_reg_json)) => Ok(println_succ!("registry id {}\nregistry definition {}\nregistry {}\n", rev_reg_id, revoc_reg_def_json, revoc_reg_json )),
+                Err(err) => Err(println_err!("Indy SDK error occurred {:?}", err)),
+            };
+
+            trace!("execute << {:?}", res);
+            res
+        }
+    }
+
+}
