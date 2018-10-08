@@ -158,7 +158,13 @@ class ErrorCode(IntEnum):
     PaymentInsufficientFundsError = 702,
 
     # No such source on a ledger
-    PaymentSourceDoesNotExistError = 703
+    PaymentSourceDoesNotExistError = 703,
+
+    # Operation is not supported for payment method
+    PaymentOperationNotSupportedError = 704,
+    
+    # Extra funds on inputs
+    PaymentExtraFundsError = 705
 
 
 class IndyError(Exception):

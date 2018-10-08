@@ -27,7 +27,7 @@ public class CredentialsSearch extends IndyJava.API implements AutoCloseable {
 		public void callback(int xcommand_handle, int err, int search_handle, int total_count) {
 
 			CompletableFuture<CredentialsSearch> future = (CompletableFuture<CredentialsSearch>) removeFuture(xcommand_handle);
-			if (!checkCallback(future, err)) return;
+			if (!checkResult(future, err)) return;
 
 			CredentialsSearch result = new CredentialsSearch(search_handle, total_count);
 			future.complete(result);
@@ -43,7 +43,7 @@ public class CredentialsSearch extends IndyJava.API implements AutoCloseable {
 		public void callback(int xcommand_handle, int err) {
 
 			CompletableFuture<Void> future = (CompletableFuture<Void>) removeFuture(xcommand_handle);
-			if (!checkCallback(future, err)) return;
+			if (!checkResult(future, err)) return;
 
 			Void result = null;
 			future.complete(result);
@@ -82,7 +82,7 @@ public class CredentialsSearch extends IndyJava.API implements AutoCloseable {
 				queryJson,
 				proverSearchCredentialsCb);
 
-		checkResult(result);
+		checkResult(future, result);
 
 		return future;
 	}
@@ -97,8 +97,8 @@ public class CredentialsSearch extends IndyJava.API implements AutoCloseable {
 	 *         "attrs": {"key1":"raw_value1", "key2":"raw_value2"},
 	 *         "schema_id": string,
 	 *         "cred_def_id": string,
-	 *         "rev_reg_id": Optional<string>,
-	 *         "cred_rev_id": Optional<string>
+	 *         "rev_reg_id": Optional["string"],
+	 *         "cred_rev_id": Optional["string"]
 	 *     }]
 	 * NOTE: The list of length less than the requested count means credentials search iterator is completed.
 	 * @throws IndyException Thrown if a call to the underlying SDK fails.
@@ -115,7 +115,7 @@ public class CredentialsSearch extends IndyJava.API implements AutoCloseable {
 				count,
 				Anoncreds.stringCb);
 
-		checkResult(result);
+		checkResult(future, result);
 
 		return future;
 	}
@@ -135,7 +135,7 @@ public class CredentialsSearch extends IndyJava.API implements AutoCloseable {
 				searchHandle,
 				voidCb);
 
-		checkResult(result);
+		checkResult(future, result);
 
 		return future;
 	}

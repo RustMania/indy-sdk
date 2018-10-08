@@ -14,14 +14,7 @@ lazy_static! {
     static ref COMMAND_HANDLE_COUNTER: AtomicUsize = ATOMIC_USIZE_INIT;
 }
 
-lazy_static! {
-    static ref CLOSURE_CB_MAP: Mutex<HashMap<i32, i32>> = Default::default();
-}
-
-pub struct CallbackUtils {}
-
-impl CallbackUtils {
-    pub fn _closure_to_cb_ec() -> (Receiver<ErrorCode>, i32,
+ pub fn _closure_to_cb_ec() -> (Receiver<ErrorCode>, i32,
                                    Option<extern fn(command_handle: i32,
                                                     err: ErrorCode)>) {
         let (sender, receiver) = channel();
@@ -403,4 +396,3 @@ impl CallbackUtils {
 
         (receiver, command_handle, Some(_callback))
     }
-}
