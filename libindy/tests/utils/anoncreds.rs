@@ -11,7 +11,7 @@ use utils::wallet::WalletUtils;
 use utils::blob_storage::BlobStorageUtils;
 use utils::test::TestUtils;
 use utils::pool::PoolUtils;
-use utils::pool::test_pool_handle;
+
 use utils::types::CredentialOfferInfo;
 
 use std::ffi::CString;
@@ -98,23 +98,23 @@ impl AnoncredsUtils {
         //println!("schema JSON {}",schema_json);
 
 
-        let schema_request = LedgerUtils::build_schema_request(&issuer_did, &schema_json).unwrap();
+        let _schema_request = LedgerUtils::build_schema_request(&issuer_did, &schema_json).unwrap();
 
-        //println!("schema request: {}",schema_request);
+        //println!("schema request: {}",_schema_request);
 
-        let schema_response = LedgerUtils::sign_and_submit_request(PoolUtils::get_test_pool_handle(), wallet_handle, &issuer_did, &schema_request).unwrap();
+        let _schema_response = LedgerUtils::sign_and_submit_request(PoolUtils::get_test_pool_handle(), wallet_handle, &issuer_did, &_schema_request).unwrap();
 
-        //println!("schema submit: {}",schema_response);
+        //println!("schema submit: {}",_schema_response);
 
     }
 
 
 
-    pub fn issuer_get_schema( issuer_did: &str ,schema_id : &str) ->Result<Option<String>, ErrorCode>
+    pub fn get_schema(submitter_did: &str, schema_id : &str) ->Result<Option<String>, ErrorCode>
     {
-        let schema_request = LedgerUtils::build_get_schema_request(issuer_did,schema_id)?;
-        let raw_response = LedgerUtils::submit_request(PoolUtils::get_test_pool_handle(), schema_request.as_str())?;
-        let (schema_id,schema_json ) = LedgerUtils::parse_get_schema_response(&raw_response)?;
+        let schema_request = LedgerUtils::build_get_schema_request(submitter_did,schema_id)?;
+        let raw_response = LedgerUtils::submit_request(PoolUtils::get_test_pool_handle(), &schema_request)?;
+        let (_id,schema_json ) = LedgerUtils::parse_get_schema_response(&raw_response)?;
 
         Ok(Some(schema_json))
     }
@@ -125,17 +125,17 @@ impl AnoncredsUtils {
 
         //println!("cred def {}\ncred def request {}",cred_def_json,cred_def_request);
 
-        let cred_def_response  = LedgerUtils::sign_and_submit_request(PoolUtils::get_test_pool_handle(), wallet_handle, &issuer_did, &cred_def_request).unwrap();
+        let _cred_def_response  = LedgerUtils::sign_and_submit_request(PoolUtils::get_test_pool_handle(), wallet_handle, &issuer_did, &cred_def_request).unwrap();
 
         //println!("cred def submit: {}", cred_def_response);
     }
 
 
-    pub fn issuer_get_cred_def( issuer_did: &str, cred_def_json : &str) -> Result<Option<String>, ErrorCode>
+    pub fn get_cred_def(submitter_did: &str, cred_def_id : &str) -> Result<Option<String>, ErrorCode>
     {
-        let cred_def_request = LedgerUtils::build_get_cred_def_txn(issuer_did, cred_def_json)?;
-        let raw_response = LedgerUtils::submit_request(PoolUtils::get_test_pool_handle(), cred_def_request.as_str())?;
-        let (id, cred_def_json) = LedgerUtils::parse_get_cred_def_response(&raw_response)?;
+        let cred_def_request = LedgerUtils::build_get_cred_def_txn(submitter_did, cred_def_id)?;
+        let raw_response = LedgerUtils::submit_request(PoolUtils::get_test_pool_handle(), &cred_def_request)?;
+        let (_id, cred_def_json) = LedgerUtils::parse_get_cred_def_response(&raw_response)?;
         Ok(Some(cred_def_json))
     }
 
@@ -143,10 +143,36 @@ impl AnoncredsUtils {
     pub fn issuer_submit_revoc_registry(wallet_handle : i32, issuer_did: & str, revoc_reg : &str)
     {
         let revoc_reg_request = LedgerUtils::build_revoc_reg_def_request(issuer_did,revoc_reg).unwrap();
-        let revoc_reg_response = LedgerUtils::sign_and_submit_request(PoolUtils::get_test_pool_handle(), wallet_handle, &issuer_did, &revoc_reg_request).unwrap();
+        let _revoc_reg_response = LedgerUtils::sign_and_submit_request(PoolUtils::get_test_pool_handle(), wallet_handle, &issuer_did, &revoc_reg_request).unwrap();
 
     }
 
+    pub fn get_revoc_registry_def(submitter_did : &str, rev_reg_def_id : &str) -> Result<Option<String>, ErrorCode>
+    {
+        let revoc_reg_request = LedgerUtils::build_get_revoc_reg_def_request(submitter_did,rev_reg_def_id)?;
+        let raw_response = LedgerUtils::submit_request(PoolUtils::get_test_pool_handle(),&revoc_reg_request)?;
+        let ( _id, revoc_reg_def ) = LedgerUtils::parse_get_revoc_reg_def_response(&raw_response)?;
+        Ok(Some(revoc_reg_def))
+    }
+
+
+    pub fn issuer_submit_revoc_reg_entry(wallet_handle : i32 , issuer_did : &str, revoc_reg_def_id : &str, value : &str)
+    {
+        let revoc_reg_entry_request = LedgerUtils::build_revoc_reg_entry_request(issuer_did,revoc_reg_def_id, "CL_ACCUM", value).unwrap();
+        //println!("revoc reg request {:?}", revoc_reg_entry_request.clone());
+        let _revoc_reg_response = LedgerUtils::sign_and_submit_request(PoolUtils::get_test_pool_handle(), wallet_handle, issuer_did, &revoc_reg_entry_request);
+        //println!("revoc reg response {:?}", _revoc_reg_response);
+    }
+
+
+    pub fn get_revoc_reg_entry( submitter_did : &str,rev_reg_def_id : &str , timestamp : u64) -> Result<Option<String>, ErrorCode>
+    {
+        let revoc_reg_request = LedgerUtils::build_get_revoc_reg_request(submitter_did,rev_reg_def_id, timestamp)?;
+        let raw_response = LedgerUtils::submit_request( PoolUtils::get_test_pool_handle(), &revoc_reg_request)?;
+        let (_id, revoc_reg_entry, timestamp ) = LedgerUtils::parse_get_revoc_reg_response(&raw_response)?;
+        Ok(Some(revoc_reg_entry))
+
+    }
 
     pub fn issuer_create_credential_definition(wallet_handle: i32, issuer_did: &str, schema: &str, tag: &str,
                                                signature_type: Option<&str>, config: Option<&str>) -> Result<(String, String), ErrorCode> {
@@ -470,7 +496,7 @@ impl AnoncredsUtils {
                                              rev_reg_defs_json.as_ptr(),
                                              rev_regs_json.as_ptr(),
                                              cb);
-
+        println!("verification error code {:?}", err);
         super::results::result_to_bool(err, receiver)
     }
 
@@ -993,10 +1019,10 @@ impl AnoncredsUtils {
                                                                             SCHEMA_VERSION,
                                                                             schema_attrs).unwrap();
 
+        // Submit tx type=101
         AnoncredsUtils::issuer_submit_schema(wallet_handle,did,&schema_json);
 
-        // disabled : the function fails and it must be fixed
-        let schema_json  = AnoncredsUtils::issuer_get_schema(did, &schema_id).unwrap().unwrap();
+        let schema_json  = AnoncredsUtils::get_schema(did, &schema_id).unwrap().unwrap();
 
         // Issuer creates credential definition
         let (cred_def_id, cred_def_json) = AnoncredsUtils::issuer_create_credential_definition(wallet_handle,
@@ -1006,8 +1032,9 @@ impl AnoncredsUtils {
                                                                                                None,
                                                                                                Some(&AnoncredsUtils::revocation_cred_def_config())).unwrap();
 
+        // Submit tx type=102
         AnoncredsUtils::issuer_submit_cred_def( did, wallet_handle, &cred_def_json);
-        let cred_def_json = AnoncredsUtils::issuer_get_cred_def(did,&cred_def_id).unwrap().unwrap();
+        let cred_def_json = AnoncredsUtils::get_cred_def(did, &cred_def_id).unwrap().unwrap();
 
         // Issuer creates revocation registry
         let tails_writer_config = AnoncredsUtils::tails_writer_config();
@@ -1022,7 +1049,16 @@ impl AnoncredsUtils {
                                                                    revoc_reg_def_config,
                                                                    tails_writer_handle).unwrap();
 
+        // Submit TX type=113,  revocation registry
         AnoncredsUtils::issuer_submit_revoc_registry(wallet_handle,did,&revoc_reg_def_json);
+
+        println!("Stored schema id {}",schema_id);
+        println!("Stored cred def id {}", cred_def_id);
+        println!("Stored revoc reg id {}", rev_reg_id);
+
+        // Submit tx type =114 , initial value of the accumulator
+        AnoncredsUtils::issuer_submit_revoc_reg_entry(wallet_handle,did,&rev_reg_id,&revoc_reg_entry_json);
+
 
 
         let blob_storage_reader_handle = BlobStorageUtils::open_reader(TYPE, &tails_writer_config).unwrap();
@@ -1064,7 +1100,8 @@ impl AnoncredsUtils {
                                                 None).unwrap();
     }
 
-    pub fn multi_steps_create_revocation_credential(prover_master_secret_id: &str,
+    pub fn multi_steps_create_revocation_credential(issuer_did : &str,
+                                                    prover_master_secret_id: &str,
                                                     prover_wallet_handle: i32,
                                                     issuer_wallet_handle: i32,
                                                     credential_id: &str,
@@ -1086,13 +1123,28 @@ impl AnoncredsUtils {
                                                                                                                    prover_master_secret_id).unwrap();
 
         // Issuer creates Credential for Prover1
+        /// cred_json is the Credential which must be sent to Prover. It contains following attributes
+        ///     {
+        ///         "schema_id": string,
+        ///         "cred_def_id": string,
+        ///         "rev_reg_def_id", Optional<string>,
+        ///         "values": <see cred_values_json above>,
+        ///         // Fields below can depend on Cred Def type
+        ///         "signature": <signature>,
+        ///         "signature_correctness_proof": <signature_correctness_proof>
+        ///     }
+        ///
+        /// cred_revoc_id: local id for revocation info -- can be used for revocation of this credential -- check if issuers' wallet can be sought for these
+        ///
+        /// revoc_reg_delta_json: Revocation registry delta json with a newly issued credential
+        ///
         let (prover1_cred_json, prover1_cred_rev_id, revoc_reg_delta1_json) = AnoncredsUtils::issuer_create_credential(issuer_wallet_handle,
                                                                                                                        &cred_offer_for_prover1_json,
                                                                                                                        &prover1_cred_req_json,
                                                                                                                        &cred_values,
                                                                                                                        Some(rev_reg_id),
                                                                                                                        Some(blob_storage_reader_handle)).unwrap();
-        let revoc_reg_delta1_json = revoc_reg_delta1_json;
+        let revoc_reg_entry_json = revoc_reg_delta1_json.clone().unwrap();
         let prover1_cred_rev_id = prover1_cred_rev_id.unwrap();
 
         // Prover1 stores Credential
@@ -1103,6 +1155,11 @@ impl AnoncredsUtils {
                                                 &cred_def_json,
                                                 Some(&revoc_reg_def_json)).unwrap();
 
+
+        // Issuer stores new value of the accumulator to the ledger
+        AnoncredsUtils::issuer_submit_revoc_reg_entry(issuer_wallet_handle,issuer_did,rev_reg_id,&revoc_reg_entry_json);
+
+        // these two values are not supposed to be known by Prover
         (prover1_cred_rev_id, revoc_reg_delta1_json)
     }
 }
