@@ -151,7 +151,7 @@ mod revocations {
                                                                                                     &issuer_did,
                                                                                                     GVT_SCHEMA_NAME,
                                                                                                     GVT_SCHEMA_ATTRIBUTES,
-                                                                                                    r#"{"max_cred_num":5, "issuance_type":"ISSUANCE_ON_DEMAND"}"#);
+                                                                                                    r#"{"max_cred_num":50, "issuance_type":"ISSUANCE_ON_DEMAND"}"#);
 
 
 
@@ -231,7 +231,7 @@ mod revocations {
         let revoc_reg_delta_json = AnoncredsUtils::issuer_merge_revocation_registry_deltas(&revoc_reg_delta_json, &revoc_reg_delta3_json).unwrap();
 
 
-
+        println!("revoc_reg_delta_json {}",revoc_reg_delta_json);
 
         ///////////////////////////////////////////////////////////// Proofs /////////////////////////////////////////////////////////////////////
 
@@ -267,22 +267,30 @@ mod revocations {
 
         // Prover1 creates RevocationState
         let timestamp = 80;
-        println!("Create revocation state");
+        println!("Create revocation state based on");
+        println!("revoc reg def: {}", &revoc_reg_def_json);
+        println!("revoc reg delta: {}", & revoc_reg_delta_json);
         let prover1_rev_state_json = AnoncredsUtils::create_revocation_state(blob_storage_reader_handle,
                                                                              &revoc_reg_def_json,
                                                                              &revoc_reg_delta_json,
                                                                              timestamp,
                                                                              &prover1_cred_rev_id).unwrap();
 
-//        println!("rev_delta {}\nrev_state {}",revoc_reg_delta_json,prover1_rev_state_json);
+        println!("Rev state {}", prover1_rev_state_json);
 
-        /// Alternatively, Prover1 should check the state of accumulator
 
-        let now = datetime_now.timestamp() as u64;
+        println!("Alternatively, create revocation state based on the state of the ledger");
 
-        let prover1_revoc_reg_entry_latest = AnoncredsUtils::get_revoc_reg_entry(DID_MY1, &prover1_rev_reg_id, now).unwrap().unwrap();
+        let now = Utc::now().timestamp() as u64;
+        println!("timestamp \"now\" is {}", now);
 
-        println!("revoc_reg_entry for the timestamp {} : {}", now, &prover1_revoc_reg_entry_latest);
+        // and fetch revocation registry definition too
+        let prover1_revoc_reg_def_json = AnoncredsUtils::get_revoc_registry_def(DID_MY1, &prover1_rev_reg_id).unwrap().unwrap();
+        println!("revoc reg def for the timestamp {} : {}", now, &prover1_revoc_reg_def_json);
+
+        let prover1_revoc_reg_entry_latest = AnoncredsUtils::get_revoc_reg_entry_delta(DID_MY1, &prover1_rev_reg_id, None, now).unwrap().unwrap();
+
+        println!("revoc reg delta for the timestamp {} : {}", now, &prover1_revoc_reg_entry_latest);
 
 //        checking the state of the accumulator with timestamp parameter set to zero is not allowed: LedgerInvalidTransaction code is returned
 //        let revoc_reg_entry_latest = AnoncredsUtils::get_revoc_reg_entry(DID_MY1, &rev_reg_id, 0u64);
@@ -293,19 +301,17 @@ mod revocations {
 //                Err(err) => println!("error code {:?}", err)
 //            }
 
-        // and fetch revocation registry definition too
-        let prover1_revoc_reg_def_json = AnoncredsUtils::get_revoc_registry_def(DID_MY1, &prover1_rev_reg_id).unwrap().unwrap();
-
-        println!("revoc_reg for the timestamp {} : {}", now, &prover1_revoc_reg_def_json);
-
-//        let prover1_rev_state_json = AnoncredsUtils::create_revocation_state(blob_storage_reader_handle,
-//                                                                             &prover1_revoc_reg_def_json,
-//                                                                             &prover1_revoc_reg_entry_latest,
-//                                                                             timestamp,
-//                                                                             &prover1_cred_rev_id).unwrap();
 
 
-        println!("prover1_rev_state {}", prover1_rev_state_json);
+
+        let prover1_rev_state_json_ledger  = AnoncredsUtils::create_revocation_state(blob_storage_reader_handle,
+                                                                             &prover1_revoc_reg_def_json,
+                                                                             &prover1_revoc_reg_entry_latest,
+                                                                             timestamp,
+                                                                             &prover1_cred_rev_id).unwrap();
+
+
+        println!("Revocation state as it is stored in the ledger {}", prover1_rev_state_json_ledger);
 
         // Prover1 creates Proof
         let requested_credentials_json = json!({
@@ -328,7 +334,7 @@ mod revocations {
 
         let rev_states_json = json!({
             rev_reg_id.clone(): json!({
-                timestamp.to_string(): serde_json::from_str::<RevocationState>(&prover1_rev_state_json).unwrap()
+                timestamp.to_string(): serde_json::from_str::<RevocationState>(&prover1_rev_state_json_ledger).unwrap()
             })
         }).to_string();
 
@@ -340,7 +346,7 @@ mod revocations {
                                                               &credential_defs_json,
                                                               &rev_states_json).unwrap();
 
-        println!("prover1_proof {}", &proof1_json);
+        //println!("prover1_proof {}", &proof1_json);
 
         // Verifier verifies proof from Prover1
         let proof: Proof = serde_json::from_str(&proof1_json).unwrap();

@@ -174,6 +174,15 @@ impl AnoncredsUtils {
 
     }
 
+    pub fn get_revoc_reg_entry_delta( submitter_did : &str,rev_reg_def_id : &str , from_time : Option<u64>, to_time : u64) -> Result<Option<String>, ErrorCode>
+    {
+        let revoc_reg_request = LedgerUtils::build_get_revoc_reg_delta_request(submitter_did,rev_reg_def_id, from_time, to_time)?;
+        let raw_response = LedgerUtils::submit_request( PoolUtils::get_test_pool_handle(), &revoc_reg_request)?;
+        let (_id, revoc_reg_entry_delta, timestamp ) = LedgerUtils::parse_get_revoc_reg_delta_response(&raw_response)?;
+        Ok(Some(revoc_reg_entry_delta))
+
+    }
+
     pub fn issuer_create_credential_definition(wallet_handle: i32, issuer_did: &str, schema: &str, tag: &str,
                                                signature_type: Option<&str>, config: Option<&str>) -> Result<(String, String), ErrorCode> {
         let (receiver, command_handle, cb) = CallbackUtils::_closure_to_cb_ec_string_string();
@@ -496,7 +505,7 @@ impl AnoncredsUtils {
                                              rev_reg_defs_json.as_ptr(),
                                              rev_regs_json.as_ptr(),
                                              cb);
-        println!("verification error code {:?}", err);
+        //println!("verification error code {:?}", err);
         super::results::result_to_bool(err, receiver)
     }
 
@@ -553,7 +562,7 @@ impl AnoncredsUtils {
     }
 
     pub fn issuance_by_default_rev_reg_config() -> String {
-        serde_json::to_string(&RevocationRegistryConfig { max_cred_num: Some(5), issuance_type: Some("ISSUANCE_BY_DEFAULT".to_string()) }).unwrap()
+        serde_json::to_string(&RevocationRegistryConfig { max_cred_num: Some(50), issuance_type: Some("ISSUANCE_BY_DEFAULT".to_string()) }).unwrap()
     }
 
     pub fn gvt_schema_id() -> String {
@@ -1035,6 +1044,22 @@ impl AnoncredsUtils {
         // Submit tx type=102
         AnoncredsUtils::issuer_submit_cred_def( did, wallet_handle, &cred_def_json);
         let cred_def_json = AnoncredsUtils::get_cred_def(did, &cred_def_id).unwrap().unwrap();
+
+
+        // uncomment to check if two cred def can be attached to same schema
+//        let (cred_def_id2, cred_def_json2) = AnoncredsUtils::issuer_create_credential_definition(wallet_handle,
+//                                                                                               did,
+//                                                                                               &schema_json,
+//                                                                                               "TAG_2",
+//                                                                                               None,
+//                                                                                               Some(&AnoncredsUtils::revocation_cred_def_config())).unwrap();
+//
+//        // Submit tx type=102
+//        AnoncredsUtils::issuer_submit_cred_def( did, wallet_handle, &cred_def_json2);
+//        let cred_def_json2 = AnoncredsUtils::get_cred_def(did, &cred_def_id2).unwrap().unwrap();
+//        println!("second cred_def stored {}", cred_def_json2);
+
+
 
         // Issuer creates revocation registry
         let tails_writer_config = AnoncredsUtils::tails_writer_config();
