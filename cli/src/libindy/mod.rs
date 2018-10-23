@@ -2,6 +2,7 @@ pub mod did;
 pub mod pool;
 pub mod wallet;
 pub mod ledger;
+pub mod logger;
 pub mod payment;
 pub mod crypto;
 pub mod anoncreds;
@@ -168,19 +169,24 @@ pub enum ErrorCode
     // Unknown payment method was given
     PaymentUnknownMethodError = 700,
 
-    //No method were scraped from inputs/outputs or more than one were scraped
+    //No methods were scraped from inputs/outputs or more than one was scraped
     PaymentIncompatibleMethodsError = 701,
 
     // Insufficient funds on inputs
     PaymentInsufficientFundsError = 702,
 
     // No such source on a ledger
-    PaymentSourceDoesNotExistError = 703
+    PaymentSourceDoesNotExistError = 703,
+
+    // Operation is not supported for payment method
+    PaymentOperationNotSupportedError = 704,
+
+    // Extra funds on inputs
+    PaymentExtraFundsError = 705
 }
 
 impl ErrorCode {
     #[allow(non_snake_case)]
-    #[allow(dead_code)]
     #[allow(unused)]
     pub fn description(&self) -> &'static str {
         match self {
@@ -234,7 +240,9 @@ impl ErrorCode {
             PaymentUnknownMethodError => "Unknown payment method was given",
             PaymentIncompatibleMethodsError => "Multiple different payment methods were specified",
             PaymentInsufficientFundsError => "Insufficient funds on inputs",
+            PaymentExtraFundsError => "Extra funds on inputs",
             PaymentSourceDoesNotExistError => "No such source found",
+            PaymentOperationNotSupportedError => "Operation is not supported for payment method",
         }
     }
 }

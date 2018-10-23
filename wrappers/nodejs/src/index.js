@@ -109,9 +109,9 @@ indy.proverGetCredential = function proverGetCredential (wh, credId, cb) {
   return cb.promise
 }
 
-indy.proverSearchCredentials = function proverSearchCredentials (wh, filter, cb) {
+indy.proverSearchCredentials = function proverSearchCredentials (wh, query, cb) {
   cb = wrapIndyCallback(cb)
-  capi.proverSearchCredentials(wh, toJson(filter), cb)
+  capi.proverSearchCredentials(wh, toJson(query), cb)
   return cb.promise
 }
 
@@ -331,6 +331,12 @@ indy.submitRequest = function submitRequest (poolHandle, request, cb) {
   return cb.promise
 }
 
+indy.submitAction = function submitAction (poolHandle, request, nodes, timeout, cb) {
+  cb = wrapIndyCallback(cb, fromJson)
+  capi.submitAction(poolHandle, toJson(request), toJson(nodes), timeout == null ? -1 : timeout, cb)
+  return cb.promise
+}
+
 indy.signRequest = function signRequest (wh, submitterDid, request, cb) {
   cb = wrapIndyCallback(cb, fromJson)
   capi.signRequest(wh, submitterDid, toJson(request), cb)
@@ -443,9 +449,9 @@ indy.buildPoolRestartRequest = function buildPoolRestartRequest (submitterDid, a
   return cb.promise
 }
 
-indy.buildPoolUpgradeRequest = function buildPoolUpgradeRequest (submitterDid, name, version, action, sha256, timeout, schedule, justification, reinstall, force, cb) {
+indy.buildPoolUpgradeRequest = function buildPoolUpgradeRequest (submitterDid, name, version, action, sha256, timeout, schedule, justification, reinstall, force, package_, cb) {
   cb = wrapIndyCallback(cb, fromJson)
-  capi.buildPoolUpgradeRequest(submitterDid, name, version, action, sha256, timeout, schedule, justification, reinstall, force, cb)
+  capi.buildPoolUpgradeRequest(submitterDid, name, version, action, sha256, timeout, schedule, justification, reinstall, force, package_, cb)
   return cb.promise
 }
 
@@ -597,7 +603,7 @@ indy.setPairwiseMetadata = function setPairwiseMetadata (wh, theirDid, metadata,
 
 indy.createPaymentAddress = function createPaymentAddress (wh, paymentMethod, config, cb) {
   cb = wrapIndyCallback(cb)
-  capi.createPaymentAddress(wh, paymentMethod, config, cb)
+  capi.createPaymentAddress(wh, paymentMethod, toJson(config), cb)
   return cb.promise
 }
 
@@ -607,11 +613,11 @@ indy.listPaymentAddresses = function listPaymentAddresses (wh, cb) {
   return cb.promise
 }
 
-indy.addRequestFees = function addRequestFees (wh, submitterDid, req, inputs, outputs, cb) {
+indy.addRequestFees = function addRequestFees (wh, submitterDid, req, inputs, outputs, extra, cb) {
   cb = wrapIndyCallback(cb, function (data) {
     return [fromJson(data[0]), data[1]]
   })
-  capi.addRequestFees(wh, submitterDid, toJson(req), toJson(inputs), toJson(outputs), cb)
+  capi.addRequestFees(wh, submitterDid, toJson(req), toJson(inputs), toJson(outputs), extra, cb)
   return cb.promise
 }
 
@@ -621,25 +627,25 @@ indy.parseResponseWithFees = function parseResponseWithFees (paymentMethod, resp
   return cb.promise
 }
 
-indy.buildGetUtxoRequest = function buildGetUtxoRequest (wh, submitterDid, paymentAddress, cb) {
+indy.buildGetPaymentSourcesRequest = function buildGetPaymentSourcesRequest (wh, submitterDid, paymentAddress, cb) {
   cb = wrapIndyCallback(cb, function (data) {
     return [fromJson(data[0]), data[1]]
   })
-  capi.buildGetUtxoRequest(wh, submitterDid, paymentAddress, cb)
+  capi.buildGetPaymentSourcesRequest(wh, submitterDid, paymentAddress, cb)
   return cb.promise
 }
 
-indy.parseGetUtxoResponse = function parseGetUtxoResponse (paymentMethod, resp, cb) {
+indy.parseGetPaymentSourcesResponse = function parseGetPaymentSourcesResponse (paymentMethod, resp, cb) {
   cb = wrapIndyCallback(cb, fromJson)
-  capi.parseGetUtxoResponse(paymentMethod, toJson(resp), cb)
+  capi.parseGetPaymentSourcesResponse(paymentMethod, toJson(resp), cb)
   return cb.promise
 }
 
-indy.buildPaymentReq = function buildPaymentReq (wh, submitterDid, inputs, outputs, cb) {
+indy.buildPaymentReq = function buildPaymentReq (wh, submitterDid, inputs, outputs, extra, cb) {
   cb = wrapIndyCallback(cb, function (data) {
     return [fromJson(data[0]), data[1]]
   })
-  capi.buildPaymentReq(wh, submitterDid, toJson(inputs), toJson(outputs), cb)
+  capi.buildPaymentReq(wh, submitterDid, toJson(inputs), toJson(outputs), extra, cb)
   return cb.promise
 }
 
@@ -649,11 +655,11 @@ indy.parsePaymentResponse = function parsePaymentResponse (paymentMethod, resp, 
   return cb.promise
 }
 
-indy.buildMintReq = function buildMintReq (wh, submitterDid, outputs, cb) {
+indy.buildMintReq = function buildMintReq (wh, submitterDid, outputs, extra, cb) {
   cb = wrapIndyCallback(cb, function (data) {
     return [fromJson(data[0]), data[1]]
   })
-  capi.buildMintReq(wh, submitterDid, toJson(outputs), cb)
+  capi.buildMintReq(wh, submitterDid, toJson(outputs), extra, cb)
   return cb.promise
 }
 
@@ -675,6 +681,20 @@ indy.parseGetTxnFeesResponse = function parseGetTxnFeesResponse (paymentMethod, 
   return cb.promise
 }
 
+indy.buildVerifyPaymentReq = function buildVerifyPaymentReq (wh, submitterDid, receipt, cb) {
+  cb = wrapIndyCallback(cb, function (data) {
+    return [fromJson(data[0]), data[1]]
+  })
+  capi.buildVerifyPaymentReq(wh, submitterDid, receipt, cb)
+  return cb.promise
+}
+
+indy.parseVerifyPaymentResponse = function parseVerifyPaymentResponse (paymentMethod, resp, cb) {
+  cb = wrapIndyCallback(cb, fromJson)
+  capi.parseVerifyPaymentResponse(paymentMethod, toJson(resp), cb)
+  return cb.promise
+}
+
 indy.createPoolLedgerConfig = function createPoolLedgerConfig (configName, config, cb) {
   cb = wrapIndyCallback(cb)
   capi.createPoolLedgerConfig(configName, toJson(config), cb)
@@ -683,7 +703,7 @@ indy.createPoolLedgerConfig = function createPoolLedgerConfig (configName, confi
 
 indy.openPoolLedger = function openPoolLedger (configName, config, cb) {
   cb = wrapIndyCallback(cb)
-  capi.openPoolLedger(configName, config, cb)
+  capi.openPoolLedger(configName, toJson(config), cb)
   return cb.promise
 }
 
@@ -735,9 +755,9 @@ indy.exportWallet = function exportWallet (wh, exportConfig, cb) {
   return cb.promise
 }
 
-indy.deleteWallet = function deleteWallet (config, credentials, cb) {
+indy.importWallet = function importWallet (config, credentials, importConfig, cb) {
   cb = wrapIndyCallback(cb)
-  capi.deleteWallet(toJson(config), toJson(credentials), cb)
+  capi.importWallet(toJson(config), toJson(credentials), toJson(importConfig), cb)
   return cb.promise
 }
 
@@ -747,9 +767,15 @@ indy.closeWallet = function closeWallet (wh, cb) {
   return cb.promise
 }
 
-indy.importWallet = function importWallet (config, credentials, importConfigJson, cb) {
+indy.deleteWallet = function deleteWallet (config, credentials, cb) {
   cb = wrapIndyCallback(cb)
-  capi.importWallet(toJson(config), toJson(credentials), toJson(importConfigJson), cb)
+  capi.deleteWallet(toJson(config), toJson(credentials), cb)
+  return cb.promise
+}
+
+indy.generateWalletKey = function generateWalletKey (config, cb) {
+  cb = wrapIndyCallback(cb)
+  capi.generateWalletKey(toJson(config), cb)
   return cb.promise
 }
 

@@ -13,7 +13,7 @@ use serde_json;
 use self::owning_ref::OwningHandle;
 use std::rc::Rc;
 
-use utils::environment::EnvironmentUtils;
+use utils::environment;
 use errors::wallet::WalletStorageError;
 use errors::common::CommonError;
 use services::wallet::language;
@@ -236,7 +236,7 @@ impl SQLiteStorageType {
 
         let mut path = match config {
             Some(Config {path: Some(ref path)}) => std::path::PathBuf::from(path),
-            _ => EnvironmentUtils::wallet_home_path()
+            _ => environment::wallet_home_path()
         };
 
         path.push(id);
@@ -246,7 +246,6 @@ impl SQLiteStorageType {
 }
 
 
-#[warn(dead_code)]
 impl WalletStorage for SQLiteStorage {
     ///
     /// Tries to fetch values and/or tags from the storage.
@@ -363,7 +362,7 @@ impl WalletStorage for SQLiteStorage {
             Err(err) => return Err(WalletStorageError::from(err))
         };
 
-        {
+        if !tags.is_empty() {
             let mut stmt_e = tx.prepare_cached("INSERT INTO tags_encrypted (item_id, name, value) VALUES (?1, ?2, ?3)")?;
             let mut stmt_p = tx.prepare_cached("INSERT INTO tags_plaintext (item_id, name, value) VALUES (?1, ?2, ?3)")?;
 
@@ -404,7 +403,7 @@ impl WalletStorage for SQLiteStorage {
             Ok(id) => id
         };
 
-        {
+        if !tags.is_empty() {
             let mut enc_tag_insert_stmt = tx.prepare_cached("INSERT OR REPLACE INTO tags_encrypted (item_id, name, value) VALUES (?1, ?2, ?3)")?;
             let mut plain_tag_insert_stmt = tx.prepare_cached("INSERT OR REPLACE INTO tags_plaintext (item_id, name, value) VALUES (?1, ?2, ?3)")?;
 
@@ -435,7 +434,7 @@ impl WalletStorage for SQLiteStorage {
         tx.execute("DELETE FROM tags_encrypted WHERE item_id = ?1", &[&item_id])?;
         tx.execute("DELETE FROM tags_plaintext WHERE item_id = ?1", &[&item_id])?;
 
-        {
+        if !tags.is_empty() {
             let mut enc_tag_insert_stmt = tx.prepare_cached("INSERT INTO tags_encrypted (item_id, name, value) VALUES (?1, ?2, ?3)")?;
             let mut plain_tag_insert_stmt = tx.prepare_cached("INSERT INTO tags_plaintext (item_id, name, value) VALUES (?1, ?2, ?3)")?;
 
@@ -638,7 +637,7 @@ impl WalletStorageType for SQLiteStorageType {
     ///  * `WalletStorageError::NotFound` - File with the provided id not found
     ///  * `IOError(..)` - Deletion of the file form the file-system failed
     ///
-    fn delete_storage(&self, id: &str, config: Option<&str>, credentials: Option<&str>) -> Result<(), WalletStorageError> {
+    fn delete_storage(&self, id: &str, config: Option<&str>, _credentials: Option<&str>) -> Result<(), WalletStorageError> {
         let config = config
             .map(serde_json::from_str::<Config>)
             .map_or(Ok(None), |v| v.map(Some))
@@ -682,7 +681,7 @@ impl WalletStorageType for SQLiteStorageType {
     ///  * `IOError("Error occurred while inserting the keys...")` - Insertion of keys failed
     ///  * `IOError(..)` - Deletion of the file form the file-system failed
     ///
-    fn create_storage(&self, id: &str, config: Option<&str>, credentials: Option<&str>, metadata: &[u8]) -> Result<(), WalletStorageError> {
+    fn create_storage(&self, id: &str, config: Option<&str>, _credentials: Option<&str>, metadata: &[u8]) -> Result<(), WalletStorageError> {
 
         let config = config
             .map(serde_json::from_str::<Config>)
@@ -743,7 +742,7 @@ impl WalletStorageType for SQLiteStorageType {
     ///  * `WalletStorageError::NotFound` - File with the provided id not found
     ///  * `IOError("IO error during storage operation:...")` - Failed connection or SQL query
     ///
-    fn open_storage(&self, id: &str, config: Option<&str>, credentials: Option<&str>) -> Result<Box<WalletStorage>, WalletStorageError> {
+    fn open_storage(&self, id: &str, config: Option<&str>, _credentials: Option<&str>) -> Result<Box<WalletStorage>, WalletStorageError> {
 
         let config = config
             .map(serde_json::from_str::<Config>)
@@ -758,6 +757,19 @@ impl WalletStorageType for SQLiteStorageType {
 
         let conn = rusqlite::Connection::open(db_file_path.as_path())?;
 
+        // set journal mode to WAL, because it provides better performance.
+        let journal_mode: String = conn.query_row(
+            "PRAGMA journal_mode = WAL",
+            &[],
+            |row| { row.get(0) }
+        )?;
+
+        // if journal mode is set to WAL, set synchronous to FULL for safety reasons.
+        // (synchronous = NORMAL with journal_mode = WAL does not guaranties durability).
+        if journal_mode.to_lowercase() == "wal" {
+            conn.execute("PRAGMA synchronous = FULL", &[])?;
+        }
+
         Ok(Box::new(SQLiteStorage { conn: Rc::new(conn) }))
     }
 }
@@ -768,7 +780,7 @@ mod tests {
     use super::*;
     use super::super::Tag;
 
-    use utils::test::TestUtils;
+    use utils::test;
 
     #[test]
     fn sqlite_storage_type_create_works() {
@@ -1119,12 +1131,6 @@ mod tests {
         let storage = _storage();
         storage.add(&_type1(), &_id1(), &_value1(), &_tags()).unwrap();
 
-        let tags_with_existing = {
-            let mut tags = _tags();
-            tags.extend(_new_tags());
-            tags
-        };
-
         storage.update_tags(&_type1(), &_id1(), &_new_tags()).unwrap();
 
         let record = storage.get(&_type1(), &_id1(), r##"{"retrieveType": false, "retrieveValue": true, "retrieveTags": true}"##).unwrap();
@@ -1247,7 +1253,7 @@ mod tests {
     }
 
     fn _cleanup() {
-        TestUtils::cleanup_storage()
+        test::cleanup_storage()
     }
 
     fn _wallet_id() -> &'static str {
@@ -1340,7 +1346,7 @@ mod tests {
     }
 
     fn _custom_path() -> String {
-        let mut path = EnvironmentUtils::tmp_path();
+        let mut path = environment::tmp_path();
         path.push("custom_wallet_path");
         path.to_str().unwrap().to_owned()
     }

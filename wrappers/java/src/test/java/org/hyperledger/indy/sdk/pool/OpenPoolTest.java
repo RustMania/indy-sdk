@@ -24,7 +24,7 @@ public class OpenPoolTest extends IndyIntegrationTest {
 	public void testOpenPoolWorksForConfig() throws Exception {
 		String poolName = PoolUtils.createPoolLedgerConfig();
 
-		OpenPoolLedgerJSONParameter config = new OpenPoolLedgerJSONParameter(true, null, null);
+		OpenPoolLedgerJSONParameter config = new OpenPoolLedgerJSONParameter(20, 80);
 		Pool pool = Pool.openPoolLedger(poolName, config.toJson()).get();
 
 		assertNotNull(pool);
@@ -46,7 +46,7 @@ public class OpenPoolTest extends IndyIntegrationTest {
 
 	@Test
 	public void testOpenPoolWorksForTwoNodes() throws Exception {
-		String poolName = PoolUtils.createPoolLedgerConfig(2);
+		String poolName = PoolUtils.createPoolLedgerConfig();
 
 		Pool pool = Pool.openPoolLedger(poolName, null).get();
 
@@ -56,7 +56,7 @@ public class OpenPoolTest extends IndyIntegrationTest {
 
 	@Test
 	public void testOpenPoolWorksForThreeNodes() throws Exception {
-		String poolName = PoolUtils.createPoolLedgerConfig(3);
+		String poolName = PoolUtils.createPoolLedgerConfig();
 
 		Pool pool = Pool.openPoolLedger(poolName, null).get();
 
