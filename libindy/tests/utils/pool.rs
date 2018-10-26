@@ -23,7 +23,7 @@ struct PoolConfig {
 pub static mut TEST_POOL_HANDLE: i32 = 0;
 
 
-impl JsonEncodable for PoolConfig {}
+//impl JsonEncodable for PoolConfig {} ???
 
 
 pub fn set_test_pool_handle(h : i32)
