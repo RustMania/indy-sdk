@@ -1,5 +1,6 @@
 extern crate serde_json;
 extern crate indy_crypto;
+extern crate chrono;
 
 use indy::api::ErrorCode;
 use indy::api::anoncreds::*;
@@ -17,10 +18,19 @@ use utils::constants::*;
 use std::collections::{HashSet, HashMap};
 
 use utils::domain::anoncreds::schema::{Schema, SchemaV1};
+use utils::domain::anoncreds::proof::Proof;
 use utils::domain::anoncreds::credential_definition::{CredentialDefinition, CredentialDefinitionConfig};
-use utils::domain::anoncreds::revocation_registry_definition::RevocationRegistryConfig;
+
+use utils::domain::anoncreds::revocation_registry_definition::{RevocationRegistryConfig,RevocationRegistryDefinition};
+
+use utils::domain::anoncreds::revocation_registry::RevocationRegistry;
+use utils::domain::anoncreds::revocation_state::RevocationState;
+
 use utils::domain::anoncreds::credential::{AttributeValues, CredentialInfo};
 use utils::domain::anoncreds::credential_for_proof_request::CredentialsForProofRequest;
+
+
+use chrono::prelude::*;
 
 pub static mut WALLET_HANDLE: i32 = 0;
 pub static mut CREDENTIAL_DEF_JSON: &'static str = "";
@@ -160,7 +170,7 @@ pub fn issuer_create_schema(issuer_did: &str, name: &str, version: &str, attr_na
     {
         let revoc_reg_request = ledger::build_get_revoc_reg_request(submitter_did,rev_reg_def_id, timestamp)?;
         let raw_response = ledger::submit_request( pool::get_test_pool_handle(), &revoc_reg_request)?;
-        let (_id, revoc_reg_entry, timestamp ) = ledger::parse_get_revoc_reg_response(&raw_response)?;
+        let (_id, revoc_reg_entry, _timestamp ) = ledger::parse_get_revoc_reg_response(&raw_response)?;
         Ok(Some(revoc_reg_entry))
 
     }
@@ -169,7 +179,7 @@ pub fn issuer_create_schema(issuer_did: &str, name: &str, version: &str, attr_na
     {
         let revoc_reg_request = ledger::build_get_revoc_reg_delta_request(submitter_did,rev_reg_def_id, from_time, to_time)?;
         let raw_response = ledger::submit_request( pool::get_test_pool_handle(), &revoc_reg_request)?;
-        let (_id, revoc_reg_entry_delta, timestamp ) = ledger::parse_get_revoc_reg_delta_response(&raw_response)?;
+        let (_id, revoc_reg_entry_delta, _timestamp ) = ledger::parse_get_revoc_reg_delta_response(&raw_response)?;
         Ok(Some(revoc_reg_entry_delta))
 
     }
@@ -482,6 +492,58 @@ pub fn prover_create_proof(wallet_handle: i32, proof_req_json: &str, requested_c
     super::results::result_to_string(err, receiver)
 }
 
+pub fn multi_step_prover_create_proof(wallet_handle: i32, proof_req_json: &str, prover_credential: CredentialInfo,
+                           master_secret_name: &str, blob_storage_reader_handle: i32) -> Result<String, ErrorCode> {
+
+    let schema_id = prover_credential.schema_id;
+    let cred_def_id = prover_credential.cred_def_id;
+
+    let rev_reg_id = prover_credential.rev_reg_id.unwrap();
+    let cred_rev_id = prover_credential.cred_rev_id.unwrap();
+
+    let now = Utc::now().timestamp() as u64;
+
+    let schema_json = get_schema(None,&schema_id)?.unwrap();
+    let cred_def_json = get_cred_def(None, &cred_def_id)?.unwrap();
+
+    let revoc_reg_def_json = get_revoc_registry_def(None, &rev_reg_id)?.unwrap();
+    let revoc_reg_entry_latest_delta = get_revoc_reg_entry_delta(None, &rev_reg_id, None, now)?.unwrap();
+
+    let rev_state_json  = create_revocation_state(blob_storage_reader_handle,
+                                                              &revoc_reg_def_json,
+                                                              &revoc_reg_entry_latest_delta,
+                                                              now,
+                                                              &cred_rev_id).unwrap();
+
+    let requested_credentials_json = json!({
+             "self_attested_attributes": json!({}),
+             "requested_attributes": json!({
+                "attr1_referent": json!({ "cred_id": prover_credential.referent, "timestamp": now, "revealed":true })
+             }),
+             "requested_predicates": json!({
+                "predicate1_referent": json!({ "cred_id": prover_credential.referent, "timestamp": now })
+             })
+        }).to_string();
+
+    let schemas_json = json!({
+            schema_id.clone(): serde_json::from_str::<Schema>(&schema_json).unwrap()
+        }).to_string();
+
+    let credential_defs_json = json!({
+            cred_def_id.clone(): serde_json::from_str::<CredentialDefinition>(&cred_def_json).unwrap()
+        }).to_string();
+
+    let rev_states_json = json!({
+            rev_reg_id.clone(): json!({
+                now.to_string(): serde_json::from_str::<RevocationState>(&rev_state_json).unwrap()
+            })
+        }).to_string();
+
+
+    return prover_create_proof(wallet_handle,proof_req_json,&requested_credentials_json,master_secret_name,&schemas_json,&credential_defs_json,&rev_states_json);
+
+}
+
 pub fn verifier_verify_proof(proof_request_json: &str, proof_json: &str, schemas_json: &str,
                              cred_defs_json: &str, rev_reg_defs_json: &str, rev_regs_json: &str) -> Result<bool, ErrorCode> {
     let (receiver, command_handle, cb) = callback::_closure_to_cb_ec_bool();
@@ -500,6 +562,66 @@ pub fn verifier_verify_proof(proof_request_json: &str, proof_json: &str, schemas
                                          credential_defs_json.as_ptr(),
                                          rev_reg_defs_json.as_ptr(),
                                          rev_regs_json.as_ptr(),
+                                         cb);
+
+    super::results::result_to_bool(err, receiver)
+}
+
+///
+/// Verify proof. Takes proof request and proof as inputs, while all other inpuits for the verification algorithm
+/// are loaded from the ledger
+/// Current version uses only first block of identifiers form the proof body,
+/// therefore it does not support proofs built upon multiple schemas and credential definitions
+/// #Params
+/// proof_request_json: proof request issued by the Verifier
+/// proof_json:  proof presented by the Prover
+///
+
+pub fn multi_step_verifier_verify_proof(proof_request_json: &str, proof_json: &str) -> Result<bool, ErrorCode> {
+    let (receiver, command_handle, cb) = callback::_closure_to_cb_ec_bool();
+
+    let proof: Proof = serde_json::from_str(&proof_json).unwrap();
+
+    let identifiers = proof.identifiers[0].clone();
+
+    let schema_json = get_schema(None, &identifiers.schema_id).unwrap().unwrap();
+    let cred_def_json = get_cred_def(None, &identifiers.cred_def_id).unwrap().unwrap();
+    let rev_reg_id = &identifiers.rev_reg_id.unwrap();
+    let rev_reg_def_json = get_revoc_registry_def(None,rev_reg_id).unwrap().unwrap();
+    let from_time = identifiers.timestamp.unwrap();
+    let rev_reg_delta_json = get_revoc_reg_entry_delta(None, rev_reg_id, Some(from_time), Utc::now().timestamp() as u64).unwrap().unwrap();
+
+
+    let schemas_json = json!({
+            identifiers.schema_id.clone(): serde_json::from_str::<Schema>(&schema_json).unwrap()
+        }).to_string();
+
+    let credential_defs_json = json!({
+            identifiers.cred_def_id.clone(): serde_json::from_str::<CredentialDefinition>(&cred_def_json).unwrap()
+        }).to_string();
+
+    let rev_reg_defs_json = json!({
+            rev_reg_id.clone(): serde_json::from_str::<RevocationRegistryDefinition>(&rev_reg_def_json).unwrap()
+        }).to_string();
+
+    let rev_regs_json = json!({
+            rev_reg_id.clone(): json!({
+                from_time.to_string(): serde_json::from_str::<RevocationRegistry>(&rev_reg_delta_json).unwrap()
+            })
+        }).to_string();
+
+
+    let proof_request_json = CString::new(proof_request_json).unwrap();
+    let proof_json = CString::new(proof_json).unwrap();
+
+
+    let err = indy_verifier_verify_proof(command_handle,
+                                         proof_request_json.as_ptr(),
+                                         proof_json.as_ptr(),
+                                         CString::new(schemas_json).unwrap().as_ptr(),
+                                         CString::new(credential_defs_json).unwrap().as_ptr(),
+                                         CString::new(rev_reg_defs_json).unwrap().as_ptr(),
+                                         CString::new(rev_regs_json).unwrap().as_ptr(),
                                          cb);
 
     super::results::result_to_bool(err, receiver)
@@ -1062,8 +1184,8 @@ pub fn multi_steps_issuer_revocation_preparation(wallet_handle: i32,
         let tails_writer_config = tails_writer_config();
         let tails_writer_handle = blob_storage::open_writer("default", &tails_writer_config).unwrap();
 
-    let (rev_reg_id, revoc_reg_def_json, revoc_reg_entry_json) =
-        issuer_create_and_store_revoc_reg(wallet_handle,
+        let (rev_reg_id, revoc_reg_def_json, revoc_reg_entry_json) =
+            issuer_create_and_store_revoc_reg(wallet_handle,
                                                                did,
                                                                None,
                                                                TAG_1,
@@ -1074,16 +1196,8 @@ pub fn multi_steps_issuer_revocation_preparation(wallet_handle: i32,
         // Submit TX type=113,  revocation registry
         issuer_submit_revoc_registry(wallet_handle,did,&revoc_reg_def_json);
 
-        //println!("Stored schema id {}",schema_id);
-        //println!("Stored cred def id {}", cred_def_id);
-
-        println!("Stored revoc reg {}", &revoc_reg_def_json);
-
         // Submit tx type =114 , initial value of the accumulator
         issuer_submit_revoc_reg_entry(wallet_handle,did,&rev_reg_id,&revoc_reg_entry_json);
-
-        println!("Stored revoc reg entry {}", &revoc_reg_entry_json);
-
 
         let blob_storage_reader_handle = blob_storage::open_reader(TYPE, &tails_writer_config).unwrap();
 
