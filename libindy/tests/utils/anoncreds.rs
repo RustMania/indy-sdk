@@ -589,7 +589,11 @@ pub fn multi_step_verifier_verify_proof(proof_request_json: &str, proof_json: &s
     let rev_reg_id = &identifiers.rev_reg_id.unwrap();
     let rev_reg_def_json = get_revoc_registry_def(None,rev_reg_id).unwrap().unwrap();
     let from_time = identifiers.timestamp.unwrap();
-    let rev_reg_delta_json = get_revoc_reg_entry_delta(None, rev_reg_id, Some(from_time), Utc::now().timestamp() as u64).unwrap().unwrap();
+    println!("identifier.timestamp {}", from_time);
+//    let now = Utc::now().timestamp() as u64;
+//    println!("now {}", now);
+    //let rev_reg_delta_json = get_revoc_reg_entry_delta(None, rev_reg_id, Some(from_time), now).unwrap().unwrap();
+    let rev_reg_delta_json = get_revoc_reg_entry(None, rev_reg_id, from_time).unwrap().unwrap();
 
 
     let schemas_json = json!({
