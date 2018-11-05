@@ -501,12 +501,11 @@ pub fn multi_step_prover_create_proof(wallet_handle: i32, proof_req_json: &str, 
     let rev_reg_id = prover_credential.rev_reg_id.unwrap();
     let cred_rev_id = prover_credential.cred_rev_id.unwrap();
 
-    let now = Utc::now().timestamp() as u64;
-
     let schema_json = get_schema(None,&schema_id)?.unwrap();
     let cred_def_json = get_cred_def(None, &cred_def_id)?.unwrap();
 
     let revoc_reg_def_json = get_revoc_registry_def(None, &rev_reg_id)?.unwrap();
+    let now = Utc::now().timestamp() as u64;
     let revoc_reg_entry_latest_delta = get_revoc_reg_entry_delta(None, &rev_reg_id, None, now)?.unwrap();
 
     let rev_state_json  = create_revocation_state(blob_storage_reader_handle,
