@@ -1263,7 +1263,7 @@ pub fn multi_steps_create_revocation_credential(issuer_did: &str,
                                                                                                                cred_def_json,
                                                                                                                prover_master_secret_id).unwrap();
     // Issuer creates Credential for Prover1
-    /// cred_json is the Credential which must be sent to Prover. It contains following attributes
+    ///cred_json is the Credential which must be sent to Prover. It contains following attributes
     ///     {
     ///         "schema_id": string,
     ///         "cred_def_id": string,
@@ -1274,9 +1274,9 @@ pub fn multi_steps_create_revocation_credential(issuer_did: &str,
     ///         "signature_correctness_proof": <signature_correctness_proof>
     ///     }
     ///
-    /// cred_revoc_id: local id for revocation info -- can be used for revocation of this credential -- check if issuers' wallet can be sought for these
+    ///cred_revoc_id: local id for revocation info -- can be used for revocation of this credential -- check if issuers' wallet can be sought for these
     ///
-    /// revoc_reg_delta_json: Revocation registry delta json with a newly issued credential
+    ///revoc_reg_delta_json: Revocation registry delta json with a newly issued credential
     ///
     // Issuer creates Credential for Prover1
     let (prover1_cred_json, prover1_cred_rev_id, revoc_reg_delta1_json) = issuer_create_credential(issuer_wallet_handle,

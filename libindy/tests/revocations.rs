@@ -125,7 +125,7 @@ mod revocations {
     fn anoncreds_works_for_revocation_proof_for_issuance_and_proving_three_credential() {
 
 
-        //env_logger::init();
+        env_logger::init();
 
         test::cleanup_storage();
 
@@ -147,7 +147,7 @@ mod revocations {
 
         //Issuer creates Schema, Credential Definition and Revocation Registry
         // All three are stored to the ledger
-        let (schema_id, schema_json,
+        let (_schema_id, _schema_json,
             cred_def_id, cred_def_json,
             rev_reg_id, revoc_reg_def_json, _,
             blob_storage_reader_handle) = anoncreds::multi_steps_issuer_revocation_preparation(issuer_wallet_handle,
@@ -164,7 +164,7 @@ mod revocations {
         let prover1_master_secret_id = "prover1_master_secret";
         anoncreds::prover_create_master_secret(prover1_wallet_handle, prover1_master_secret_id).unwrap();
 
-        let (prover1_cred_rev_id, revoc_reg_delta1_json) = anoncreds::multi_steps_create_revocation_credential(
+        let (_prover1_cred_rev_id, revoc_reg_delta1_json) = anoncreds::multi_steps_create_revocation_credential(
             &issuer_did,
             prover1_master_secret_id,
             prover1_wallet_handle,
@@ -215,7 +215,7 @@ mod revocations {
         let prover3_master_secret_id = "prover3_master_secret";
         anoncreds::prover_create_master_secret(prover3_wallet_handle, prover3_master_secret_id).unwrap();
 
-        let (prover3_cred_rev_id, revoc_reg_delta3_json) = anoncreds::multi_steps_create_revocation_credential(
+        let (_prover3_cred_rev_id, revoc_reg_delta3_json) = anoncreds::multi_steps_create_revocation_credential(
             &issuer_did,
             prover3_master_secret_id,
             prover3_wallet_handle,
@@ -558,7 +558,7 @@ mod revocations {
         wallet::close_wallet(prover2_wallet_handle).unwrap();
         wallet::close_wallet(prover3_wallet_handle).unwrap();
 
-        //test::cleanup_storage();
+        test::cleanup_storage();
     }
 
 #[cfg(feature = "disabled")]
