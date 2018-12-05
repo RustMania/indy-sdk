@@ -241,6 +241,8 @@ mod revocations {
 
         //the PROOF REQUEST used by all provers/verifiers
 
+        let verifyer_now = Utc::now().timestamp() as u64;
+
         let proof_request = json!({
            "nonce":"123432421212",
            "name":"proof_req_1",
@@ -253,7 +255,7 @@ mod revocations {
            "requested_predicates": json!({
                "predicate1_referent": json!({ "name":"age", "p_type":">=", "p_value":18 })
            }),
-           "non_revoked": json!({ "from":80, "to":100})
+           "non_revoked": json!({ "from":0, "to": verifyer_now })
         }).to_string();
 
 
