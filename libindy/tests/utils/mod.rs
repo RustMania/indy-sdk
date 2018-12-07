@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+extern crate chrono;
+
 pub mod callback;
 
 #[path = "../../src/utils/environment.rs"]
@@ -103,4 +105,8 @@ pub fn setup_did() -> (i32, String) {
     let wallet_handle = setup_with_wallet();
     let (did, _) = did::create_and_store_my_did(wallet_handle, None).unwrap();
     (wallet_handle, did)
+}
+
+pub fn time_now() ->  u64{
+    self::chrono::Utc::now().timestamp() as u64
 }

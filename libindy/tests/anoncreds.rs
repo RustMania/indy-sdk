@@ -4188,7 +4188,6 @@ mod demos {
 
         //5. Issuance Credential
         let (cred_rev_id, revoc_reg_delta_json) = anoncreds::multi_steps_create_revocation_credential(
-            issuer_did,
             COMMON_MASTER_SECRET,
             prover_wallet_handle,
             issuer_wallet_handle,
@@ -4316,7 +4315,6 @@ mod demos {
         anoncreds::prover_create_master_secret(prover_wallet_handle, COMMON_MASTER_SECRET).unwrap();
 
         let (cred_rev_id, _) = anoncreds::multi_steps_create_revocation_credential(
-            issuer_did,
             COMMON_MASTER_SECRET,
             prover_wallet_handle,
             issuer_wallet_handle,
@@ -4623,7 +4621,6 @@ mod demos {
         anoncreds::prover_create_master_secret(prover1_wallet_handle, prover1_master_secret_id).unwrap();
 
         let (prover1_cred_rev_id, revoc_reg_delta1_json) = anoncreds::multi_steps_create_revocation_credential(
-            issuer_did,
             prover1_master_secret_id,
             prover1_wallet_handle,
             issuer_wallet_handle,
@@ -4643,7 +4640,6 @@ mod demos {
         anoncreds::prover_create_master_secret(prover2_wallet_handle, prover2_master_secret_id).unwrap();
 
         let (prover2_cred_rev_id, revoc_reg_delta2_json) = anoncreds::multi_steps_create_revocation_credential(
-            issuer_did,
             prover2_master_secret_id,
             prover2_wallet_handle,
             issuer_wallet_handle,
@@ -4667,7 +4663,6 @@ mod demos {
         anoncreds::prover_create_master_secret(prover3_wallet_handle, prover3_master_secret_id).unwrap();
 
         let (prover3_cred_rev_id, revoc_reg_delta3_json) = anoncreds::multi_steps_create_revocation_credential(
-            issuer_did,
             prover3_master_secret_id,
             prover3_wallet_handle,
             issuer_wallet_handle,
@@ -5075,7 +5070,6 @@ mod demos {
         let timestamp1 = time::get_time().sec as u64;
 
         let (prover1_cred_rev_id, revoc_reg_delta1_json) = anoncreds::multi_steps_create_revocation_credential(
-             issuer_did,
             prover1_master_secret_id,
             prover1_wallet_handle,
             issuer_wallet_handle,
@@ -5097,7 +5091,6 @@ mod demos {
         let timestamp2 = time::get_time().sec as u64 + 100;
 
         let (_, revoc_reg_delta2_json) = anoncreds::multi_steps_create_revocation_credential(
-            issuer_did,
             prover2_master_secret_id,
             prover2_wallet_handle,
             issuer_wallet_handle,
@@ -5264,7 +5257,6 @@ mod demos {
         anoncreds::prover_create_master_secret(prover_wallet_handle, COMMON_MASTER_SECRET).unwrap();
 
         let (cred_rev_id, revoc_reg_delta_json) = anoncreds::multi_steps_create_revocation_credential(
-            issuer_did,
             COMMON_MASTER_SECRET,
             prover_wallet_handle,
             issuer_wallet_handle,
@@ -5413,7 +5405,6 @@ mod demos {
 
         //5. Issuance Credential for Prover
         let (cred_rev_id, _) = anoncreds::multi_steps_create_revocation_credential(
-            issuer_did,
             COMMON_MASTER_SECRET,
             prover_wallet_handle,
             issuer_wallet_handle,
@@ -5568,8 +5559,7 @@ mod demos {
         anoncreds::prover_create_master_secret(prover_1_wallet_handle, prover_1_master_secret).unwrap();
 
 
-        anoncreds::multi_steps_create_revocation_credential(issuer_did,,
-                                                            prover_1_master_secret,
+        anoncreds::multi_steps_create_revocation_credential(prover_1_master_secret,
                                                             prover_1_wallet_handle,
                                                             issuer_wallet_handle,
                                                             CREDENTIAL1_ID,
@@ -5585,7 +5575,7 @@ mod demos {
         let prover_2_master_secret = "prover2_master_secret";
         anoncreds::prover_create_master_secret(prover_2_wallet_handle, prover_2_master_secret).unwrap();
 
-        anoncreds::multi_steps_create_revocation_credential(issuer_did,,prover_2_master_secret,
+        anoncreds::multi_steps_create_revocation_credential(prover_2_master_secret,
                                                             prover_2_wallet_handle,
                                                             issuer_wallet_handle,
                                                             CREDENTIAL2_ID,
@@ -5656,7 +5646,7 @@ mod demos {
         let prover_1_master_secret = "prover1_master_secret";
         anoncreds::prover_create_master_secret(prover_1_wallet_handle, prover_1_master_secret).unwrap();
 
-        anoncreds::multi_steps_create_revocation_credential(issuer_did,prover_1_master_secret,
+        anoncreds::multi_steps_create_revocation_credential(prover_1_master_secret,
                                                             prover_1_wallet_handle,
                                                             issuer_wallet_handle,
                                                             CREDENTIAL1_ID,
@@ -5672,7 +5662,7 @@ mod demos {
         let prover_2_master_secret = "prover2_master_secret";
         anoncreds::prover_create_master_secret(prover_2_wallet_handle, prover_2_master_secret).unwrap();
 
-        anoncreds::multi_steps_create_revocation_credential(issuer_did,,prover_2_master_secret,
+        anoncreds::multi_steps_create_revocation_credential(prover_2_master_secret,
                                                             prover_2_wallet_handle,
                                                             issuer_wallet_handle,
                                                             CREDENTIAL2_ID,

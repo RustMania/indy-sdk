@@ -25,8 +25,6 @@ extern crate rust_base58;
 extern crate time;
 extern crate serde;
 
-extern crate chrono;
-
 #[macro_use]
 extern crate log;
 extern crate env_logger;
@@ -39,34 +37,17 @@ mod utils;
 
 use utils::wallet;
 use utils::anoncreds;
-use utils::ledger;
-//use utils::blob_storage::BlobStorageUtils;
-//use utils::anoncreds::{COMMON_MASTER_SECRET, CREDENTIAL1_ID, CREDENTIAL2_ID, CREDENTIAL3_ID, ANONCREDS_WALLET_CONFIG};
 use utils::anoncreds::{CREDENTIAL1_ID, CREDENTIAL2_ID, CREDENTIAL3_ID};
 use utils::test;
-
-//use indy::api::ErrorCode;
-//use utils::inmem_wallet::InmemWallet;
 use utils::constants::*;
-
-//use utils::domain::anoncreds::schema::Schema;
-//use utils::domain::anoncreds::credential_definition::CredentialDefinition;
-//use utils::domain::anoncreds::revocation_registry_definition::RevocationRegistryDefinition;
-//use utils::domain::anoncreds::credential::CredentialInfo;
-//use utils::domain::anoncreds::credential_for_proof_request::{CredentialsForProofRequest, RequestedCredential};
 use utils::domain::anoncreds::proof::Proof;
-//use utils::domain::anoncreds::revocation_state::RevocationState;
-//use utils::domain::anoncreds::revocation_registry::RevocationRegistry;
-
-//use std::collections::HashSet;
-//use std::time::SystemTime;
+use utils::time_now;
 
 
 use utils::pool;
 use utils::did;
 use std::path::Path;
 
-use chrono::prelude::*;
 
 mod revocations {
 
@@ -95,30 +76,7 @@ mod revocations {
     }
 
 
-    fn _indy_schema_request(issuer_did: &str, pool_handle: i32, wallet_handle: i32 , schema_json : &str) {
 
-        println!("schema JSON {}",schema_json);
-
-        let schema_request = ledger::build_schema_request(&issuer_did, &schema_json).unwrap();
-
-        println!("schema request: {}",schema_request);
-
-        let schema_response = ledger::sign_and_submit_request(pool_handle, wallet_handle, &issuer_did, &schema_request).unwrap();
-
-        println!("schema submit: {}",schema_response);
-
-    }
-
-    fn _indy_cred_def_request(issuer_did: &str, pool_handle: i32, wallet_handle: i32,  cred_def_json: &str )
-    {
-        let cred_def_request = ledger::build_cred_def_txn(&issuer_did, &cred_def_json).unwrap();
-
-        println!("cred def {}\ncred def request {}",cred_def_json,cred_def_request);
-
-        let cred_def_response  = ledger::sign_and_submit_request(pool_handle, wallet_handle, &issuer_did, &cred_def_request).unwrap();
-
-        println!("cred def submit: {}", cred_def_response);
-    }
 
     #[cfg(feature = "revocation_tests")]
     #[test]
@@ -150,7 +108,7 @@ mod revocations {
         let (_schema_id, _schema_json,
             cred_def_id, cred_def_json,
             rev_reg_id, revoc_reg_def_json, _,
-            blob_storage_reader_handle) = anoncreds::multi_steps_issuer_revocation_preparation(issuer_wallet_handle,
+            blob_storage_reader_handle) = anoncreds::interact_with_ledger::multi_steps_issuer_revocation_preparation(issuer_wallet_handle,
                                                                                                     &issuer_did,
                                                                                                     GVT_SCHEMA_NAME,
                                                                                                     GVT_SCHEMA_ATTRIBUTES,
@@ -164,7 +122,7 @@ mod revocations {
         let prover1_master_secret_id = "prover1_master_secret";
         anoncreds::prover_create_master_secret(prover1_wallet_handle, prover1_master_secret_id).unwrap();
 
-        let (_prover1_cred_rev_id, revoc_reg_delta1_json) = anoncreds::multi_steps_create_revocation_credential(
+        let (_prover1_cred_rev_id, revoc_reg_delta1_json) = anoncreds::interact_with_ledger::multi_steps_create_revocation_credential(
             &issuer_did,
             prover1_master_secret_id,
             prover1_wallet_handle,
@@ -180,15 +138,15 @@ mod revocations {
         let revoc_reg_delta1_json = revoc_reg_delta1_json.unwrap();
         println!("revoc_reg_delta1_json {}",revoc_reg_delta1_json);
 
-        let datetime_now: DateTime<Utc> = Utc::now();
-        println!("timestamp is {}", datetime_now.clone().timestamp() as u64);
+        let datetime_now =  time_now();
+        println!("timestamp is {}", datetime_now);
 
         // ISSUANCE CREDENTIAL FOR PROVER2
         // Prover2 creates Master Secret
         let prover2_master_secret_id = "prover2_master_secret";
         anoncreds::prover_create_master_secret(prover2_wallet_handle, prover2_master_secret_id).unwrap();
 
-        let (prover2_cred_rev_id, revoc_reg_delta2_json) = anoncreds::multi_steps_create_revocation_credential(
+        let (prover2_cred_rev_id, revoc_reg_delta2_json) = anoncreds::interact_with_ledger::multi_steps_create_revocation_credential(
              &issuer_did,
             prover2_master_secret_id,
             prover2_wallet_handle,
@@ -215,7 +173,7 @@ mod revocations {
         let prover3_master_secret_id = "prover3_master_secret";
         anoncreds::prover_create_master_secret(prover3_wallet_handle, prover3_master_secret_id).unwrap();
 
-        let (_prover3_cred_rev_id, revoc_reg_delta3_json) = anoncreds::multi_steps_create_revocation_credential(
+        let (_prover3_cred_rev_id, revoc_reg_delta3_json) = anoncreds::interact_with_ledger::multi_steps_create_revocation_credential(
             &issuer_did,
             prover3_master_secret_id,
             prover3_wallet_handle,
@@ -241,7 +199,10 @@ mod revocations {
 
         //the PROOF REQUEST used by all provers/verifiers
 
-        let verifyer_now = Utc::now().timestamp() as u64;
+        let verifyer_now = time_now();
+
+        println!("verifyer: to: {}", verifyer_now);
+
 
         let proof_request = json!({
            "nonce":"123432421212",
@@ -346,7 +307,7 @@ mod revocations {
 //            })
 //        }).to_string();
 
-        let proof1_json = anoncreds::multi_step_prover_create_proof(prover1_wallet_handle,
+        let proof1_json = anoncreds::interact_with_ledger::multi_step_prover_create_proof(prover1_wallet_handle,
                                                               &proof_request,
                                                                     prover1_credential,
                                                               prover1_master_secret_id,
@@ -379,7 +340,7 @@ mod revocations {
 
 
 
-        let valid = anoncreds::multi_step_verifier_verify_proof(&proof_request,
+        let valid = anoncreds::interact_with_ledger::multi_step_verifier_verify_proof(&proof_request,
                                                                 &proof1_json).unwrap();
 
 
@@ -393,7 +354,7 @@ mod revocations {
                                                                             &prover2_cred_rev_id).unwrap();
         println!("revoc_reg_delta4_json {}",revoc_reg_delta4_json);
         // Issuer publishes new accumulator value
-        anoncreds::issuer_submit_revoc_reg_entry(issuer_wallet_handle,&issuer_did,&rev_reg_id,&revoc_reg_delta4_json);
+        anoncreds::interact_with_ledger::issuer_submit_revoc_reg_entry(issuer_wallet_handle,&issuer_did,&rev_reg_id,&revoc_reg_delta4_json);
 
         // Issuer merge Revocation Registry Deltas
         let revoc_reg_delta_json = anoncreds::issuer_merge_revocation_registry_deltas(&revoc_reg_delta_json, &revoc_reg_delta4_json).unwrap();
@@ -405,7 +366,7 @@ mod revocations {
         let prover2_credentials_json = anoncreds::prover_get_credentials_for_proof_req(prover2_wallet_handle, &proof_request).unwrap();
         let prover2_credential = anoncreds::get_credential_for_attr_referent(&prover2_credentials_json, "attr1_referent");
 
-        let proof2_json = anoncreds::multi_step_prover_create_proof(prover2_wallet_handle,
+        let proof2_json = anoncreds::interact_with_ledger::multi_step_prover_create_proof(prover2_wallet_handle,
                                                                     &proof_request,
                                                                     prover2_credential,
                                                                     prover2_master_secret_id,
@@ -466,7 +427,7 @@ mod revocations {
 //            })
 //        }).to_string();
 
-        let valid = anoncreds::multi_step_verifier_verify_proof(&proof_request,
+        let valid = anoncreds::interact_with_ledger::multi_step_verifier_verify_proof(&proof_request,
                                                                 &proof2_json).unwrap();
 
         assert!(!valid);
@@ -524,7 +485,7 @@ mod revocations {
 //                                                              &credential_defs_json,
 //                                                              &rev_states_json).unwrap();
 
-        let proof3_json = anoncreds::multi_step_prover_create_proof(prover3_wallet_handle,
+        let proof3_json = anoncreds::interact_with_ledger::multi_step_prover_create_proof(prover3_wallet_handle,
                                                                     &proof_request,
                                                                     prover3_credential,
                                                                     prover3_master_secret_id,
@@ -546,7 +507,7 @@ mod revocations {
 //            })
 //        }).to_string();
 
-        let valid = anoncreds::multi_step_verifier_verify_proof(&proof_request,
+        let valid = anoncreds::interact_with_ledger::multi_step_verifier_verify_proof(&proof_request,
                                                                 &proof3_json).unwrap();
 //                                                          &schemas_json,
 //                                                          &credential_defs_json,

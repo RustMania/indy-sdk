@@ -797,7 +797,6 @@ fn anoncreds_revocation_interaction_test_issuance_by_demand_three_credentials_po
     anoncreds::prover_create_master_secret(prover1_wallet_handle, prover1_master_secret_id).unwrap();
 
     let (prover1_cred_rev_id, revoc_reg_delta1_json) = anoncreds::multi_steps_create_revocation_credential(
-         issuer_did,
         prover1_master_secret_id,
         prover1_wallet_handle,
         issuer_wallet_handle,
@@ -823,7 +822,6 @@ fn anoncreds_revocation_interaction_test_issuance_by_demand_three_credentials_po
     anoncreds::prover_create_master_secret(prover2_wallet_handle, prover2_master_secret_id).unwrap();
 
     let (_, revoc_reg_delta2_json) = anoncreds::multi_steps_create_revocation_credential(
-         issuer_did,
         prover2_master_secret_id,
         prover2_wallet_handle,
         issuer_wallet_handle,
@@ -848,7 +846,6 @@ fn anoncreds_revocation_interaction_test_issuance_by_demand_three_credentials_po
     anoncreds::prover_create_master_secret(prover3_wallet_handle, prover3_master_secret_id).unwrap();
 
     let (_, revoc_reg_delta3_json) = anoncreds::multi_steps_create_revocation_credential(
-         issuer_did,
         prover3_master_secret_id,
         prover3_wallet_handle,
         issuer_wallet_handle,
@@ -1082,7 +1079,6 @@ fn anoncreds_revocation_interaction_test_issuance_by_demand_three_credentials_po
     anoncreds::prover_create_master_secret(prover1_wallet_handle, prover1_master_secret_id).unwrap();
 
     let (prover1_cred_rev_id, revoc_reg_delta1_json) = anoncreds::multi_steps_create_revocation_credential(
-         issuer_did,
         prover1_master_secret_id,
         prover1_wallet_handle,
         issuer_wallet_handle,
@@ -1102,7 +1098,6 @@ fn anoncreds_revocation_interaction_test_issuance_by_demand_three_credentials_po
     anoncreds::prover_create_master_secret(prover2_wallet_handle, prover2_master_secret_id).unwrap();
 
     let (prover2_cred_rev_id, revoc_reg_delta2_json) = anoncreds::multi_steps_create_revocation_credential(
-         issuer_did,
         prover2_master_secret_id,
         prover2_wallet_handle,
         issuer_wallet_handle,
@@ -1125,7 +1120,6 @@ fn anoncreds_revocation_interaction_test_issuance_by_demand_three_credentials_po
     anoncreds::prover_create_master_secret(prover3_wallet_handle, prover3_master_secret_id).unwrap();
 
     let (prover3_cred_rev_id, revoc_reg_delta3_json) = anoncreds::multi_steps_create_revocation_credential(
-         issuer_did,
         prover3_master_secret_id,
         prover3_wallet_handle,
         issuer_wallet_handle,
