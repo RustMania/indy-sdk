@@ -35,7 +35,11 @@ pub static CONFIG_WALLET_TYPE: &'static str = "wallet_type";
 pub static CONFIG_WALLET_HANDLE: &'static str = "wallet_handle";
 pub static CONFIG_THREADPOOL_SIZE: &'static str = "threadpool_size";
 pub static CONFIG_WALLET_KEY_DERIVATION: &'static str = "wallet_key_derivation";
+pub static CONFIG_PROTOCOL_VERSION: &'static str = "protocol_version";
+pub static CONFIG_PAYMENT_METHOD: &'static str = "payment_method";
 
+pub static DEFAULT_PROTOCOL_VERSION: usize = 2;
+pub static MAX_SUPPORTED_PROTOCOL_VERSION: usize = 2;
 pub static UNINITIALIZED_WALLET_KEY: &str = "<KEY_IS_NOT_SET>";
 pub static DEFAULT_GENESIS_PATH: &str = "/tmp/genesis.txn";
 pub static DEFAULT_EXPORTED_WALLET_PATH: &str = "/tmp/wallet.txn";
@@ -52,7 +56,9 @@ pub static DEFAULT_WALLET_KEY: &str = "foobar1234";
 pub static DEFAULT_THREADPOOL_SIZE: usize = 8;
 pub static MASK_VALUE: &str = "********";
 pub static DEFAULT_WALLET_KEY_DERIVATION: &str = "ARGON2I_INT";
-
+pub static DEFAULT_PAYMENT_PLUGIN: &str = "libnullpay.so";
+pub static DEFAULT_PAYMENT_INIT_FUNCTION: &str = "nullpay_init";
+pub static DEFAULT_PAYMENT_METHOD: &str = "null";
 pub static MAX_THREADPOOL_SIZE: usize = 128;
 
 lazy_static! {
@@ -71,6 +77,7 @@ impl ToString for HashMap<String, String> {
     }
 }
 pub fn set_defaults() -> u32 {
+    trace!("set_defaults >>>");
 
     // if this fails the program should exit
     let mut settings = SETTINGS.write().unwrap();
@@ -90,14 +97,17 @@ pub fn set_defaults() -> u32 {
     settings.insert(CONFIG_SDK_TO_REMOTE_VERKEY.to_string(),DEFAULT_VERKEY.to_string());
     settings.insert(CONFIG_WALLET_KEY.to_string(),DEFAULT_WALLET_KEY.to_string());
     settings.insert(CONFIG_LINK_SECRET_ALIAS.to_string(), DEFAULT_LINK_SECRET_ALIAS.to_string());
+    settings.insert(CONFIG_PROTOCOL_VERSION.to_string(), DEFAULT_PROTOCOL_VERSION.to_string());
     settings.insert(CONFIG_EXPORTED_WALLET_PATH.to_string(), DEFAULT_EXPORTED_WALLET_PATH.to_string());
     settings.insert(CONFIG_WALLET_BACKUP_KEY.to_string(), DEFAULT_WALLET_BACKUP_KEY.to_string());
     settings.insert(CONFIG_THREADPOOL_SIZE.to_string(), DEFAULT_THREADPOOL_SIZE.to_string());
+    settings.insert(CONFIG_PAYMENT_METHOD.to_string(), DEFAULT_PAYMENT_METHOD.to_string());
 
     error::SUCCESS.code_num
 }
 
 pub fn validate_config(config: &HashMap<String, String>) -> Result<u32, u32> {
+    trace!("validate_config >>> config: {:?}", config);
 
     //Mandatory parameters
     if config.get(CONFIG_WALLET_KEY).is_none() {
@@ -119,7 +129,6 @@ pub fn validate_config(config: &HashMap<String, String>) -> Result<u32, u32> {
 
     validate_optional_config_val(config.get(CONFIG_AGENCY_ENDPOINT), error::INVALID_URL.code_num, Url::parse)?;
     validate_optional_config_val(config.get(CONFIG_INSTITUTION_LOGO_URL), error::INVALID_URL.code_num, Url::parse)?;
-
 
     Ok(error::SUCCESS.code_num)
 }
@@ -178,6 +187,8 @@ pub fn test_agency_mode_enabled() -> bool {
 }
 
 pub fn process_config_string(config: &str) -> Result<u32, u32> {
+    trace!("process_config_string >>> config {}", config);
+
     let configuration: Value = serde_json::from_str(config).or(Err(error::INVALID_JSON.code_num))?;
     if let Value::Object(ref map) = configuration {
         for (key, value) in map {
@@ -191,6 +202,8 @@ pub fn process_config_string(config: &str) -> Result<u32, u32> {
 }
 
 pub fn process_config_file(path: &str) -> Result<u32, u32> {
+    trace!("process_config_file >>> path: {}", path);
+
     if !Path::new(path).is_file() {
         error!("Configuration path was invalid");
         Err(error::INVALID_CONFIGURATION.code_num)
@@ -199,7 +212,29 @@ pub fn process_config_file(path: &str) -> Result<u32, u32> {
     }
 }
 
+pub fn get_protocol_version() -> usize {
+    let protocol_version = match get_config_value(CONFIG_PROTOCOL_VERSION) {
+        Ok(ver) => ver.parse::<usize>().unwrap_or_else(|err| {
+            warn!("Can't parse value of protocol version from config ({}), use default one ({})", err, DEFAULT_PROTOCOL_VERSION);
+            DEFAULT_PROTOCOL_VERSION
+        }),
+        Err(err) => {
+            info!("Can't fetch protocol version from config ({}), use default one ({})", err, DEFAULT_PROTOCOL_VERSION);
+            DEFAULT_PROTOCOL_VERSION
+        },
+    };
+    if protocol_version > MAX_SUPPORTED_PROTOCOL_VERSION {
+        error!("Protocol version from config {}, greater then maximal supported {}, use maximum one",
+               protocol_version, MAX_SUPPORTED_PROTOCOL_VERSION);
+        MAX_SUPPORTED_PROTOCOL_VERSION
+    } else {
+        protocol_version
+    }
+}
+
 pub fn get_config_value(key: &str) -> Result<String, u32> {
+    trace!("get_config_value >>> key: {}", key);
+
     SETTINGS
         .read()
         .or(Err(error::INVALID_CONFIGURATION.code_num))?
@@ -208,6 +243,7 @@ pub fn get_config_value(key: &str) -> Result<String, u32> {
 }
 
 pub fn set_config_value(key: &str, value: &str) {
+    trace!("set_config_value >>> key: {}, value: {}", key, value);
     SETTINGS.write().unwrap().insert(key.to_string(), value.to_string());
 }
 
@@ -221,7 +257,26 @@ pub fn get_wallet_credentials() -> String {
     credentials.to_string()
 }
 
+pub fn validate_payment_method() -> Result<(), u32> {
+    let config = SETTINGS.read().unwrap();
+    if let Some(method) = config.get(CONFIG_PAYMENT_METHOD) {
+        if !method.to_string().is_empty() {
+            return Ok(());
+        }
+    }
+    return Err(error::MISSING_PAYMENT_METHOD.code_num);
+}
+
+pub fn get_payment_method() -> String {
+
+    let payment_method = get_config_value(CONFIG_PAYMENT_METHOD).unwrap_or(DEFAULT_PAYMENT_METHOD.to_string());
+
+    payment_method
+}
+
 pub fn write_config_to_file(config: &str, path_string: &str) -> Result<(), u32> {
+    trace!("write_config_to_file >>> config: {}, path_string: {}", config, path_string);
+
     let mut file = fs::File::create(Path::new(path_string))
         .or(Err(error::UNKNOWN_ERROR.code_num))?;
 
@@ -231,6 +286,7 @@ pub fn write_config_to_file(config: &str, path_string: &str) -> Result<(), u32> 
 }
 
 pub fn read_config_file(path: &str) -> Result<String, u32> {
+    trace!("read_config_file >>> path: {}", path);
     let mut file = fs::File::open(path).or(Err(error::UNKNOWN_ERROR.code_num))?;
     let mut config = String::new();
     file.read_to_string(&mut config).or(Err(error::UNKNOWN_ERROR.code_num))?;
@@ -238,8 +294,8 @@ pub fn read_config_file(path: &str) -> Result<String, u32> {
 }
 
 pub fn remove_file_if_exists(filename: &str){
+    trace!("remove_file_if_exists >>> filename: {}", filename);
     if Path::new(filename).exists() {
-        println!("{}", format!("Removing file for testing: {}.", &filename));
         match fs::remove_file(filename) {
             Ok(t) => (),
             Err(e) => println!("Unable to remove file: {:?}", e)
@@ -248,6 +304,7 @@ pub fn remove_file_if_exists(filename: &str){
 }
 
 pub fn clear_config() {
+    trace!("clear_config >>>");
     let mut config = SETTINGS.write().unwrap();
     config.clear();
 }
@@ -306,6 +363,7 @@ pub mod tests {
         write_config_to_file(&content, config_path).unwrap();
 
         assert_eq!(process_config_file(config_path), Ok(error::SUCCESS.code_num));
+
         assert_eq!(get_config_value("institution_name").unwrap(), "evernym enterprise".to_string());
     }
 
@@ -327,7 +385,6 @@ pub mod tests {
         }).to_string();
 
         assert_eq!(process_config_string(&content), Ok(error::SUCCESS.code_num));
-        assert_eq!(get_config_value("institution_name").unwrap(), "evernym enterprise".to_string());
     }
 
     #[test]
@@ -349,7 +406,7 @@ pub mod tests {
             "institution_verkey": "444MFrZjXDoi2Vc8Mm14Ys112tEZdDegBZZoembFEATE",
         }).to_string();
         let config: HashMap<String, String> = serde_json::from_str(&content).unwrap();
-        assert_eq!(validate_config(&config), Ok(error::SUCCESS.code_num))
+        assert_eq!(validate_config(&config), Ok(error::SUCCESS.code_num));
     }
 
     #[test]
@@ -437,7 +494,27 @@ pub mod tests {
         assert_eq!(get_config_value(&key), Err(error::INVALID_CONFIGURATION.code_num));
 
         set_config_value(&key, &value1);
-        assert_eq!(get_config_value(&key).unwrap(), value1)
+        assert_eq!(get_config_value(&key).unwrap(), value1);
+    }
+
+    #[test]
+    fn test_payment_plugin_validation() {
+        clear_config();
+        set_config_value(CONFIG_PAYMENT_METHOD, "null");
+        assert_eq!(validate_payment_method(), Ok(()));
+    }
+
+    #[test]
+    fn test_payment_plugin_validation_empty_string() {
+        clear_config();
+        set_config_value(CONFIG_PAYMENT_METHOD, "");
+        assert_eq!(validate_payment_method(), Err(error::MISSING_PAYMENT_METHOD.code_num));
+    }
+
+    #[test]
+    fn test_payment_plugin_validation_missing_option() {
+        clear_config();
+        assert_eq!(validate_payment_method(), Err(error::MISSING_PAYMENT_METHOD.code_num));
     }
 
     #[test]
@@ -448,7 +525,7 @@ pub mod tests {
             "wallet_name":"test_clear_config",
             "institution_name" : "evernym enterprise",
             "genesis_path":"/tmp/pool1.txn",
-            "wallet_key":"key"
+            "wallet_key":"key",
         }).to_string();
 
         assert_eq!(process_config_string(&content), Ok(error::SUCCESS.code_num));
@@ -469,25 +546,5 @@ pub mod tests {
         assert_eq!(get_config_value("institution_name"), Err(error::INVALID_CONFIGURATION.code_num));
         assert_eq!(get_config_value("genesis_path"), Err(error::INVALID_CONFIGURATION.code_num));
         assert_eq!(get_config_value("wallet_key"), Err(error::INVALID_CONFIGURATION.code_num));
-    }
-
-    #[test]
-    fn test_log_settings() {
-        // log settings should mask the wallet_key field
-        ::utils::logger::LoggerUtils::init_test_logging("trace");
-        set_defaults();
-        let key = "secretkeyabc123foobar";
-        {
-            let mut settings = SETTINGS.write().unwrap();
-            settings.insert(CONFIG_WALLET_KEY.to_string(), key.to_string()).unwrap();
-            let masked_settings = settings.to_string();
-            match masked_settings.get(CONFIG_WALLET_KEY) {
-                None => panic!("Test Failure"),
-                Some(value) => {
-                    assert_ne!(value, key);
-                },
-            }
-        }
-        log_settings();
     }
 }

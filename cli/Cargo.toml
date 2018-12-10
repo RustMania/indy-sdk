@@ -1,6 +1,6 @@
 [package]
 name = "indy-cli"
-version = "1.6.6"
+version = "1.6.8"
 authors = ["Vyacheslav Gudkov <vyacheslav.gudkov@dsr-company.com>"]
 
 [features]
@@ -30,3 +30,4 @@ term = "0.4.6"
 rpassword = "1.0.0"
 rust-base58 = "*"
 base64="*"
+indy = { version = "1.6.7", path = "../wrappers/rust/" }

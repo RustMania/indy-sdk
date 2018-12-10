@@ -6,7 +6,7 @@ use utils::error;
 use settings;
 use schema::LedgerSchema;
 use utils::constants::{ CRED_DEF_ID, CRED_DEF_JSON, CRED_DEF_TXN_TYPE };
-use utils::libindy::payments::{pay_for_txn, PaymentTxn};
+use utils::libindy::payments::{pay_for_txn, PaymentTxn, build_test_address};
 use utils::libindy::anoncreds::{libindy_create_and_store_credential_def};
 use utils::libindy::ledger::{libindy_submit_request,
                              libindy_build_get_credential_def_txn,
@@ -59,7 +59,9 @@ impl CredentialDef {
 
     pub fn set_source_id(&mut self, source_id: String) { self.source_id = source_id.clone(); }
 
-    fn get_payment_txn(&self) -> Result<PaymentTxn, u32> { Ok(self.payment_txn.clone().ok_or(error::NOT_READY.code_num)?) }
+    fn get_payment_txn(&self) -> Result<PaymentTxn, u32> {
+        Ok(self.payment_txn.clone().ok_or(error::NOT_READY.code_num)?)
+    }
 
     fn to_string_with_version(&self) -> String {
         json!({
@@ -82,6 +84,9 @@ pub fn create_new_credentialdef(source_id: String,
                                 schema_id: String,
                                 tag: String,
                                 config_json: String) -> Result<u32, CredDefError> {
+    trace!("create_new_credentialdef >>> source_id: {}, name: {}, issuer_did: {}, schema_id: {}, tag: {}, config_json: {}",
+           source_id, name, issuer_did, schema_id, tag, config_json);
+
     let schema_json = LedgerSchema::new_from_ledger(&schema_id)
         .map_err(|x| CredDefError::CommonError(x.to_error_code()))?.schema_json;
 
@@ -112,7 +117,18 @@ fn _create_and_store_credential_def(issuer_did: &str,
                                    sig_type: Option<&str>,
                                    config_json: &str) -> Result<(String, Option<PaymentTxn>), CredDefError> {
     if settings::test_indy_mode_enabled() {
-        return Ok((CRED_DEF_ID.to_string(), Some(PaymentTxn::from_parts(r#"["pay:null:9UFgyjuJxi1i1HD"]"#,r#"[{"amount":4,"extra":null,"recipient":"pay:null:xkIsxem0YNtHrRO"}]"#,1, false).unwrap())));
+
+        let inputs = format!(r#"["{}"]"#, build_test_address("9UFgyjuJxi1i1HD"));
+
+        let outputs = format!(r#"[
+            {{
+                "amount": 1,
+                "extra": null,
+                "recipient": "{}"
+            }}
+        ]"#, build_test_address("xkIsxem0YNtHrRO"));
+
+        return Ok((CRED_DEF_ID.to_string(), Some(PaymentTxn::from_parts(&inputs, &outputs, 1, false).unwrap())));
     }
 
     let (id, cred_def_json) = libindy_create_and_store_credential_def(issuer_did,
@@ -145,6 +161,8 @@ fn _create_and_store_credential_def(issuer_did: &str,
 }
 
 pub fn retrieve_credential_def(cred_def_id: &str) -> Result<(String, String), CredDefError> {
+    trace!("retrieve_credential_def >>> cred_def_id: {}", cred_def_id);
+
     if settings::test_indy_mode_enabled() { return Ok((CRED_DEF_ID.to_string(), CRED_DEF_JSON.to_string())); }
 
     let get_cred_def_req = libindy_build_get_credential_def_txn(cred_def_id)

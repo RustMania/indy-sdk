@@ -96,6 +96,10 @@ class ErrorCode(IntEnum):
     DuplicateMasterSecret = 1084,
     ThreadError = 1085,
     InvalidProofRequest = 1086,
+    MissingPaymentMethod = 1087,
+    DuplicateSchema = 1088,
+    UnknownLibindyRejection = 1089
+    LoggingError = 1090
 
 
 class VcxError(Exception):
@@ -110,7 +114,7 @@ def error_message(error_code: int) -> str:
     logger = logging.getLogger(__name__)
     name = 'vcx_error_c_message'
     c_error_code = c_uint32(error_code)
-    c_err_msg = getattr(_cdll(), name)(c_error_code)
-    err_msg = cast(c_err_msg , c_char_p).value.decode()
+    getattr(_cdll(), name).restype = c_char_p
+    err_msg = getattr(_cdll(), name)(c_error_code)
     logger.debug("error_message: Function %s[%s] returned error_message: %s", name, error_code, err_msg)
-    return err_msg
+    return err_msg.decode()
