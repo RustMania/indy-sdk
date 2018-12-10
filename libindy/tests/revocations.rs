@@ -49,33 +49,11 @@ use utils::did;
 use std::path::Path;
 
 
+
 mod revocations {
 
 
     use super::*;
-
-
-
-    fn open_pool_ledger()  {
-
-
-        pool::set_protocol_version(PROTOCOL_VERSION).unwrap();
-
-        let pool_name = "pool_open";
-        let txn_file_path = pool::create_genesis_txn_file_for_test_pool(pool_name, None, Some(Path::new("pool_transactions_genesis")));
-        let pool_config = pool::pool_config_json(txn_file_path.as_path());
-        pool::create_pool_ledger_config(pool_name, Some(pool_config.as_str())).unwrap();
-
-        pool::set_test_pool_handle(pool::open_pool_ledger(pool_name, Some(&pool_config)).unwrap());
-
-    }
-
-    fn _close_pool_ledger() {
-
-        pool::close(pool::get_test_pool_handle()).unwrap();
-    }
-
-
 
 
     #[cfg(feature = "revocation_tests")]
@@ -87,7 +65,7 @@ mod revocations {
 
         test::cleanup_storage();
 
-        open_pool_ledger();
+        open_pool();
 
         // Issuer creates wallet, gets wallet handle
         let issuer_wallet_handle = wallet::create_and_open_default_wallet().unwrap();
@@ -227,86 +205,6 @@ mod revocations {
         let prover1_credential = anoncreds::get_credential_for_attr_referent(&prover1_credentials_json, "attr1_referent");
 
 
-
-//        let prover1_rev_reg_id = prover1_credential.rev_reg_id.unwrap();
-//        let prover1_cred_rev_id = prover1_credential.cred_rev_id.unwrap();
-//        println!("creds {}", &prover1_credentials_json );
-//        println!("cred for attr {:?}", &prover1_credential );
-
-
-        // Prover1 creates RevocationState
-//        let timestamp = 80;
-//        println!("Create revocation state based on");
-//        println!("revoc reg def: {}", &revoc_reg_def_json);
-//        println!("revoc reg delta: {}", & revoc_reg_delta_json);
-//        let prover1_rev_state_json = anoncreds::create_revocation_state(blob_storage_reader_handle,
-//                                                                             &revoc_reg_def_json,
-//                                                                             &revoc_reg_delta_json,
-//                                                                             timestamp,
-//                                                                             &prover1_cred_rev_id).unwrap();
-//
-//        println!("Rev state {}", prover1_rev_state_json);
-
-
-//        println!("Create revocation state");
-//
-//        let now = Utc::now().timestamp() as u64;
-//        println!("timestamp \"now\" is {}", now);
-//
-//        // and fetch revocation registry definition too
-//        let prover1_revoc_reg_def_json = anoncreds::get_revoc_registry_def(Some(DID_MY1), &prover1_rev_reg_id).unwrap().unwrap();
-//        println!("revoc reg def for the timestamp {} : {}", now, &prover1_revoc_reg_def_json);
-//
-//        let prover1_revoc_reg_entry_latest = anoncreds::get_revoc_reg_entry_delta(Some(DID_MY1), &prover1_rev_reg_id, None, now).unwrap().unwrap();
-//
-//        println!("revoc reg delta for the timestamp {} : {}", now, &prover1_revoc_reg_entry_latest);
-
-//        checking the state of the accumulator with timestamp parameter set to zero is not allowed: LedgerInvalidTransaction code is returned
-//        let revoc_reg_entry_latest = AnoncredsUtils::get_revoc_reg_entry(DID_MY1, &rev_reg_id, 0u64);
-//
-//        match revoc_reg_entry_latest
-//            {
-//                Ok(e) => println!("revoc_reg_entry for the timestamp {} : {:?}", 0u64 , e),
-//                Err(err) => println!("error code {:?}", err)
-//            }
-
-//
-//
-//
-//        let prover1_rev_state_json_ledger  = anoncreds::create_revocation_state(blob_storage_reader_handle,
-//                                                                             &prover1_revoc_reg_def_json,
-//                                                                             &prover1_revoc_reg_entry_latest,
-//                                                                             timestamp,
-//                                                                             &prover1_cred_rev_id).unwrap();
-//
-//
-//        println!("Revocation state as it is stored in the ledger {}", prover1_rev_state_json_ledger);
-//
-//        // Prover1 creates Proof
-//        let requested_credentials_json = json!({
-//             "self_attested_attributes": json!({}),
-//             "requested_attributes": json!({
-//                "attr1_referent": json!({ "cred_id": prover1_credential.referent, "timestamp": timestamp, "revealed":true })
-//             }),
-//             "requested_predicates": json!({
-//                "predicate1_referent": json!({ "cred_id": prover1_credential.referent, "timestamp": timestamp })
-//             })
-//        }).to_string();
-//
-//        let schemas_json = json!({
-//            schema_id.clone(): serde_json::from_str::<Schema>(&schema_json).unwrap()
-//        }).to_string();
-//
-//        let credential_defs_json = json!({
-//            cred_def_id.clone(): serde_json::from_str::<CredentialDefinition>(&cred_def_json).unwrap()
-//        }).to_string();
-//
-//        let rev_states_json = json!({
-//            rev_reg_id.clone(): json!({
-//                timestamp.to_string(): serde_json::from_str::<RevocationState>(&prover1_rev_state_json_ledger).unwrap()
-//            })
-//        }).to_string();
-
         let proof1_json = anoncreds::interact_with_ledger::multi_step_prover_create_proof(prover1_wallet_handle,
                                                               &proof_request,
                                                                     prover1_credential,
@@ -314,35 +212,14 @@ mod revocations {
                                                                 blob_storage_reader_handle
                                                               ).unwrap();
 
-        //println!("prover1_proof {}", &proof1_json);
 
         // Verifier verifies proof from Prover1
         let proof: Proof = serde_json::from_str(&proof1_json).unwrap();
         assert_eq!("Alex", proof.requested_proof.revealed_attrs.get("attr1_referent").unwrap().raw);
 
-//        // pick the revocation registry Id from the proof
-//        let verifier_rev_reg_def_id = proof.identifiers[0].clone().rev_reg_id.unwrap();
-//        // fetch revocation registry definition from the ledger
-//        let verifier_rev_reg_def = anoncreds::get_revoc_registry_def(None,&verifier_rev_reg_def_id).unwrap().unwrap();
-//        // fetch revocation accumulator from the ledger
-//        let verifier_rev_reg_delta = anoncreds::get_revoc_reg_entry_delta(None, &verifier_rev_reg_def_id, None, Utc::now().timestamp() as u64).unwrap().unwrap();
-//
-//
-//        let rev_reg_defs_json = json!({
-//            rev_reg_id.clone(): serde_json::from_str::<RevocationRegistryDefinition>(&verifier_rev_reg_def /*&revoc_reg_def_json*/).unwrap()
-//        }).to_string();
-//
-//        let rev_regs_json = json!({
-//            rev_reg_id.clone(): json!({
-//                timestamp.to_string(): serde_json::from_str::<RevocationRegistry>(&verifier_rev_reg_delta /*revoc_reg_delta_json*/).unwrap()
-//            })
-//        }).to_string();
-
-
 
         let valid = anoncreds::interact_with_ledger::multi_step_verifier_verify_proof(&proof_request,
                                                                 &proof1_json).unwrap();
-
 
         assert!(valid);
         println!("prover1 verified");
@@ -372,60 +249,11 @@ mod revocations {
                                                                     prover2_master_secret_id,
                                                                     blob_storage_reader_handle
                                                                     ).unwrap();
-//        // Prover2 creates RevocationState
-//        let timestamp = 90;
-//        let prover2_rev_state_json = anoncreds::create_revocation_state(blob_storage_reader_handle,
-//                                                                             &revoc_reg_def_json,
-//                                                                             &revoc_reg_delta_json,
-//                                                                             timestamp,
-//                                                                             &prover2_cred_rev_id).unwrap();
 
-//        // Prover2 creates Proof
-//        let requested_credentials_json = json!({
-//             "self_attested_attributes": json!({}),
-//             "requested_attributes": json!({
-//                "attr1_referent": json!({ "cred_id": prover2_credential.referent, "timestamp": timestamp, "revealed":true })
-//             }),
-//             "requested_predicates": json!({
-//                "predicate1_referent": json!({ "cred_id": prover2_credential.referent, "timestamp": timestamp })
-//             })
-//        }).to_string();
-//
-//        let schemas_json = json!({
-//            schema_id.clone(): serde_json::from_str::<Schema>(&schema_json).unwrap()
-//        }).to_string();
-//
-//        let credential_defs_json = json!({
-//            cred_def_id.clone(): serde_json::from_str::<CredentialDefinition>(&cred_def_json).unwrap()
-//        }).to_string();
-//
-//        let rev_states_json = json!({
-//            rev_reg_id.clone(): json!({
-//                timestamp.to_string(): serde_json::from_str::<RevocationState>(&prover2_rev_state_json).unwrap()
-//            })
-//        }).to_string();
-//
-//        let proof2_json = anoncreds::prover_create_proof(prover2_wallet_handle,
-//                                                              &proof_request,
-//                                                              &requested_credentials_json,
-//                                                              prover2_master_secret_id,
-//                                                              &schemas_json,
-//                                                              &credential_defs_json,
-//                                                              &rev_states_json).unwrap();
 
         // Verifier verifies proof from Prover2
-//        let proof: Proof = serde_json::from_str(&proof2_json).unwrap();
-//        assert_eq!("Alexander", proof.requested_proof.revealed_attrs.get("attr1_referent").unwrap().raw);
-
-//        let rev_reg_defs_json = json!({
-//            rev_reg_id.clone(): serde_json::from_str::<RevocationRegistryDefinition>(&revoc_reg_def_json).unwrap()
-//        }).to_string();
-//
-//        let rev_regs_json = json!({
-//            rev_reg_id.clone(): json!({
-//                timestamp.to_string(): serde_json::from_str::<RevocationRegistry>(&revoc_reg_delta_json).unwrap()
-//            })
-//        }).to_string();
+        let proof: Proof = serde_json::from_str(&proof2_json).unwrap();
+        assert_eq!("Alexander", proof.requested_proof.revealed_attrs.get("attr1_referent").unwrap().raw);
 
         let valid = anoncreds::interact_with_ledger::multi_step_verifier_verify_proof(&proof_request,
                                                                 &proof2_json).unwrap();
@@ -441,50 +269,7 @@ mod revocations {
         let prover3_credentials_json = anoncreds::prover_get_credentials_for_proof_req(prover3_wallet_handle, &proof_request).unwrap();
         let prover3_credential = anoncreds::get_credential_for_attr_referent(&prover3_credentials_json, "attr1_referent");
 
-//        // Prover3 creates RevocationState
-//        let timestamp = 100;
-//        let prover3_rev_state_json = anoncreds::create_revocation_state(blob_storage_reader_handle,
-//                                                                             &revoc_reg_def_json,
-//                                                                             &revoc_reg_delta_json,
-//                                                                             timestamp,
-//                                                                             &prover3_cred_rev_id).unwrap();
-//
-//        println!("rev_delta {}\nrev_state {}",revoc_reg_delta_json,prover3_rev_state_json);
-//
-//
-//        // Prover3 creates Proof
-//        let requested_credentials_json = json!({
-//             "self_attested_attributes": json!({}),
-//             "requested_attributes": json!({
-//                "attr1_referent": json!({ "cred_id": prover3_credential.referent, "timestamp": timestamp, "revealed":true })
-//             }),
-//             "requested_predicates": json!({
-//                "predicate1_referent": json!({ "cred_id": prover3_credential.referent, "timestamp": timestamp })
-//             })
-//        }).to_string();
-//
-//        let schemas_json = json!({
-//            schema_id.clone(): serde_json::from_str::<Schema>(&schema_json).unwrap()
-//        }).to_string();
-//
-//        let credential_defs_json = json!({
-//            cred_def_id.clone(): serde_json::from_str::<CredentialDefinition>(&cred_def_json).unwrap()
-//        }).to_string();
-//
-//        let rev_states_json = json!({
-//            rev_reg_id.clone(): json!({
-//                timestamp.to_string(): serde_json::from_str::<RevocationState>(&prover3_rev_state_json).unwrap()
-//            })
-//        }).to_string();
-//
-//        let proof3_json = anoncreds::prover_create_proof(prover3_wallet_handle,
-//                                                              &proof_request,
-//                                                              &requested_credentials_json,
-//                                                              prover3_master_secret_id,
-//                                                              &schemas_json,
-//                                                              &credential_defs_json,
-//                                                              &rev_states_json).unwrap();
-
+        // Prover3 creates RevocationState
         let proof3_json = anoncreds::interact_with_ledger::multi_step_prover_create_proof(prover3_wallet_handle,
                                                                     &proof_request,
                                                                     prover3_credential,
@@ -494,25 +279,13 @@ mod revocations {
 
 
         // Verifier verifies proof from Prover2
-//        let proof: Proof = serde_json::from_str(&proof3_json).unwrap();
-//        assert_eq!("Artem", proof.requested_proof.revealed_attrs.get("attr1_referent").unwrap().raw);
-//
-//        let rev_reg_defs_json = json!({
-//            rev_reg_id.clone(): serde_json::from_str::<RevocationRegistryDefinition>(&revoc_reg_def_json).unwrap()
-//        }).to_string();
-//
-//        let rev_regs_json = json!({
-//            rev_reg_id.clone(): json!({
-//                timestamp.to_string(): serde_json::from_str::<RevocationRegistry>(&revoc_reg_delta_json).unwrap()
-//            })
-//        }).to_string();
+        let proof: Proof = serde_json::from_str(&proof3_json).unwrap();
+        assert_eq!("Artem", proof.requested_proof.revealed_attrs.get("attr1_referent").unwrap().raw);
+
 
         let valid = anoncreds::interact_with_ledger::multi_step_verifier_verify_proof(&proof_request,
                                                                 &proof3_json).unwrap();
-//                                                          &schemas_json,
-//                                                          &credential_defs_json,
-//                                                          &rev_reg_defs_json,
-//                                                          &rev_regs_json).unwrap();
+
         assert!(valid);
         println!("prover3 verified");
 
@@ -522,6 +295,8 @@ mod revocations {
         wallet::close_wallet(prover3_wallet_handle).unwrap();
 
         test::cleanup_storage();
+
+        pool::close(pool::get_test_pool_handle()).unwrap();
     }
 
 #[cfg(feature = "disabled")]
@@ -726,8 +501,25 @@ fn anoncreds_works_for_issuance_by_default_revocation_strategy_revoke_credential
 
 
     close_pool_ledger();
-    TestUtils::cleanup_storage();
+    test::cleanup_storage();
 }
+
+
+
+
+    fn open_pool(){
+
+
+        pool::set_protocol_version(PROTOCOL_VERSION).unwrap();
+
+        let pool_name = POOL;
+        let txn_file_path = pool::create_genesis_txn_file_for_test_pool(pool_name, None, Some(Path::new("pool_transactions_genesis")));
+        let pool_config = pool::pool_config_json(txn_file_path.as_path());
+        pool::create_pool_ledger_config(pool_name, Some(pool_config.as_str())).unwrap();
+
+        pool::set_test_pool_handle(pool::open_pool_ledger(pool_name, Some(&pool_config)).unwrap());
+
+    }
 
 
 }
