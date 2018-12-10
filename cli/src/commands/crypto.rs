@@ -489,7 +489,7 @@ pub mod create_credential{
         trace!(r#"Anoncreds::create_credential_request return: {:?}"#, res);
 
         let res = match res {
-            Ok((cred,revoc_id,revoc_delta)) => Ok(println_succ!("credential\n\n{}\n{} {}\n", cred, revoc_id, revoc_delta )),
+            Ok((cred,revoc_id,revoc_delta)) => Ok(println_succ!("credential\n\n{}\n{:?} {:?}\n", cred, revoc_id, revoc_delta )),
             Err(err) => Err(println_err!("Indy SDK error occurred {:?}", err)),
         };
 
